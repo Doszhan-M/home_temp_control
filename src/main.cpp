@@ -1,17 +1,18 @@
 #include <Arduino.h>
+#include <RCSwitch.h>
 
-#define LED_PIN 13
-#define BLINK_DELAY 1000
+
+RCSwitch mySwitch = RCSwitch();
 
 
 void setup() {
-    pinMode(LED_PIN, OUTPUT);
+    mySwitch.enableTransmit(2);
 }
 
 
 void loop() {
-    digitalWrite(LED_PIN, HIGH);
-    delay(BLINK_DELAY);
-    digitalWrite(LED_PIN, LOW);
-    delay(BLINK_DELAY);
+    mySwitch.send(B0100, 4);
+    delay(1000); 
+    mySwitch.send(B1000, 4);
+    delay(1000); 
 }
