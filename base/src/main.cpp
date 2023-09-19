@@ -20,7 +20,6 @@ void setup() {
     pinMode(RADIO_GND, OUTPUT);         
     digitalWrite(RADIO_GND, LOW);
     radioModule.enableTransmit(RADIO_DATA);
-    
 }
 
 
