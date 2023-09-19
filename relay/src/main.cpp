@@ -3,9 +3,9 @@
 
 
 // ----------------------- ПИНЫ --------------------------------------------------------------------
-#define RADIO_VCC 10                                        // питание радио модуля
-#define RADIO_GND 11                                        // GND радио модуля
-#define RADIO_DATA 12                                       // data пин радио модуля
+#define RADIO_VCC 9                                         // питание радио модуля
+#define RADIO_GND 12                                        // GND радио модуля
+#define RADIO_DATA 10                                       // data пин радио модуля
 
 
 // Классы ------------------------------------------------------------------------------------------
@@ -19,14 +19,24 @@ void setup() {
     digitalWrite(RADIO_VCC, HIGH);       
     pinMode(RADIO_GND, OUTPUT);         
     digitalWrite(RADIO_GND, LOW);
-    radioModule.enableTransmit(RADIO_DATA);
+
+    radioModule.enableReceive(RADIO_DATA);
 }
 
 
 void loop() {
-    Serial.println("Check Arduino");
-    radioModule.send(1, 4);
-    delay(3000); 
-    radioModule.send(2, 4);
-    delay(3000); 
+    Serial.println("Check Arduino Receive");
+    Serial.println(radioModule.available());
+
+    if( radioModule.available() ){
+        int value = radioModule.getReceivedValue();
+ 
+        if( value == 1 )
+            Serial.println("Receive 1");
+        else if( value == 2 )
+            Serial.println("Receive 2");
+
+        radioModule.resetAvailable();
+    }
+    delay(1000); 
 }
