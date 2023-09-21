@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html>
+
+    <head>
+        <title>Climate Control Center</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head>
+
+    <body class="flex_center">
+        <header class="flex_center">
+            <h1>Climate Control Center</h1>
+        </header>
+
+       
+        <div class="main-content">
+
+            <div class="status">
+                <p>VALVE STATE: <strong id="state">%STATE%</strong></p>
+            </div>
+
+            <div class="circle_block">
+                <div class="temp_circle">
+                    <span id="temperature">%TEMPERATURE%</span><span>&#176C</span>
+                </div>
+                <div class="temp_circle">
+                    <span id="humidity">%HUMIDITY%</span><span>%</span>
+                </div>
+            </div>
+
+            <div class="set_settings">
+                <form action="/get" class="temp_form_max">
+                    <div>MAXIMUM</div>
+                    <div><input type="text" class="max_temp" name="max_temp" value=%MAX_TEMP%&#176C></div>
+                    <div><input type="submit" value="SET" class="btn" onclick="submitMaximum()"></div>  
+                </form>
+        
+                <form action="/get" class="temp_form_min">
+                    <div>MINIMUM</div>
+                    <div><input type="text" class="max_temp" name="min_temp" value=%MIN_TEMP%&#176C></div>
+                    <div><input type="submit" value="SET" class="btn" onclick="submitMinimum()"></div>  
+                </form>
+            </div>
+            <div class="manual flex_center">
+                <div class="manual_block">
+                    <div>Manual control</div>
+                    <div class="manual_control"></div>
+                </div>
+                <div class="delta_block">
+                    <p class="delta_title">During the night from 0 to 8 am will be set the offset to night delta</p>
+                    <form action="/get" class="temp_form_min">
+                        <div>DELTA</div>
+                        <div><input type="text" class="max_temp delta_input" name="delta" value=%DELTA%&#176C></div>
+                        <div><input type="submit" value="SET" class="btn" onclick="submitDelta()"></div>  
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <footer class="flex_center">
+            <p class="clock">%DATE_TIME%</p>
+        </footer>
+        <script src="index.js"></script>
+    </body>
+
+</html>
