@@ -9,8 +9,6 @@ unsigned long lastTime = 0;
 unsigned long timerDelay = 10000; // 10 seconds (10000)
 
 // Конфигурация WIFI подключения
-// const char *wifi_ssid = "ASUS_ROUTER";
-// const char *wifi_password = "aSus2020";
 const char *wifi_ssid = "Actuator";
 const char *wifi_password = "rmc6394B";
 

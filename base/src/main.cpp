@@ -30,9 +30,6 @@ String wifi_password;
 const char *ssid = "Actuator";
 const char *password = "rmc6394B";
 
-// url sonoff
-const char *url = "http://192.168.4.2:8081/zeroconf/switch";
-
 // ----------------------- ПИНЫ --------------------------------------------------------------------
 #define DHT_VCC D6   // питание датчика DHT22
 #define DHT_PIN D5   // дата пин датчика DHT22
@@ -99,7 +96,7 @@ String readFile(fs::FS &fs, const char *path);
 void writeFile(fs::FS &fs, const char *path, const char *message);
 void close_valve_startup();
 void open_valve();
-void close_valve();
+int close_valve();
 String manualOpenValve();
 String manualCLoseValve();
 String showTime();
@@ -115,6 +112,14 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(CLOSE_PIN, INPUT_PULLUP);
   pinMode(OPEN_PIN, INPUT_PULLUP);
+
+  // Точка доступа для relay ------------------------------------------------------------------
+  Serial.print("Access Point:");   // Выводим информацию через последовательный монитор
+  Serial.println(ssid);            // Сообщаем пользователю имя WiFi, установленное NodeMCU
+  WiFi.softAP(ssid, password);     // WiFi.softAP используется для запуска режима AP NodeMCU.
+  Serial.print("IP-адрес:");       // И IP-адрес NodeMCU
+  Serial.println(WiFi.softAPIP()); // IP-адрес NodeMCU можно получить, вызвав WiFi.softAPIP ()
+  // -------------------------------------------------------------------------------------------
 
   // Старт датчика DHT22 ----------------------------------------------
   pinMode(DHT_PIN, INPUT);     // D5 пин в режиме входа
@@ -199,20 +204,6 @@ void setup()
   }
   // -------------------------------------------------------------------------------------------
 
-  // Точка доступа для sonoff ------------------------------------------------------------------
-  WiFi.softAP(ssid, password);     // WiFi.softAP используется для запуска режима AP NodeMCU.
-  Serial.print("Access Point:");   // Выводим информацию через последовательный монитор
-  Serial.println(ssid);            // Сообщаем пользователю имя WiFi, установленное NodeMCU
-  Serial.print("IP-адрес:");       // И IP-адрес NodeMCU
-  Serial.println(WiFi.softAPIP()); // IP-адрес NodeMCU можно получить, вызвав WiFi.softAPIP ()
-  // -------------------------------------------------------------------------------------------
-
-  // Инициализация http клиента -----------------------------------------------------------------
-  restclient.begin(client, url);
-  Serial.println("restclient started");
-
-  // --------------------------------------------------------------------------------------------
-
   // Эндпойнты web сервера ----------------------------------------------------------------------
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(LittleFS, "/index.html", String(), false, processor); });
@@ -295,41 +286,18 @@ void setup()
       Serial.println(night_temp_delta);
     }; });
 
-  // server.on("/wifi_settings", HTTP_GET, [](AsyncWebServerRequest *request)
-  //           {
-  //     String inputMessage;
-
-  //     if (request->hasParam(input_ssid))
-  //     {
-  //       inputMessage = request->getParam(input_ssid)->value();
-  //       writeFile(LittleFS, wifi_ssid_file, inputMessage.c_str());
-  //       delay(15);
-  //       wifi_ssid = get_wifi_ssid();
-  //       Serial.println(wifi_ssid);
-  //     };
-
-  //     if (request->hasParam("password"))
-  //     {
-  //       inputMessage = request->getParam("password")->value();
-  //       writeFile(LittleFS, wifi_pass_file, inputMessage.c_str());
-  //       delay(15);
-  //       wifi_password = get_wifi_pass();
-  //       Serial.println(wifi_password);
-  //     };
-  //     request->send_P(200, "text/plain", "WiFi settings accepted!"); });
-
   server.onNotFound(notFound);
   server.begin();
   Serial.println("HTTP server started");
 
-  // При запуске открыть привод клапана --------------------------------------------------------------
-  // close_valve_startup();
+  // При запуске закрыть привод клапана --------------------------------------------------------------
+  close_valve_startup();
 }
 // ---------------------------------------------------------------------------------------------------
 
 void loop()
 {
-  if ((millis() - lastTime) > timerDelay) // вместо delay()
+  if ((millis() - lastTime) > timerDelay)                                         // вместо delay()
   {
 
     // управление физической кнопкой -----------------------------------------
@@ -395,24 +363,22 @@ void loop()
     lastTime = millis();
   };
 }
-
 // ------------------------------------------------------------------------------------------------
 
 // Функции управления реле
 
-// Отправить запрос на включение реле
-void close_valve()
+// Отправить запрос на выключение реле
+int close_valve()
 {
-  restclient.addHeader("Content-Type", "application/json");                            // header
-  String RequestData = "{\"deviceid\":\"1000b91ec6\",\"data\":{\"switch\": \"off\"}}"; // payload
-  int ResponseStatusCode = restclient.POST(RequestData);                               // post запрос
+  
+  const char *closeUrl = "http://192.168.4.2/close_valve/";                           // url relay
+  restclient.begin(client, closeUrl);
+  int ResponseStatusCode = restclient.GET();                                          // get запрос
   if (ResponseStatusCode == 200)
   {
     Serial.print("Relay has been switched off! Status: ");
     Serial.println(ResponseStatusCode);
     Serial.println("Valve has been closed");
-    /* запрос с проверкой не нужно делать, если пришел ответ 200, значит sonoff
-     ответил и выполнил задание, поэтому сразу valve_is_opened можно менять */
     valve_is_opened = false;
     valveState = "CLOSED";
     digitalWrite(LED_BUILTIN, HIGH); // выключить светодиод
@@ -424,14 +390,15 @@ void close_valve()
     Serial.print("Error! StatusCode code: ");
     Serial.println(ResponseStatusCode);
   }
+  return ResponseStatusCode;
 };
 
-// Отправить запрос на выключение реле
+// Отправить запрос на включение реле
 void open_valve()
 {
-  restclient.addHeader("Content-Type", "application/json");                           // header
-  String RequestData = "{\"deviceid\":\"1000b91ec6\",\"data\":{\"switch\": \"on\"}}"; // payload
-  int ResponseStatusCode = restclient.POST(RequestData);                              // post запрос
+  const char *closeUrl = "http://192.168.4.2/open_valve/";                              // url relay
+  restclient.begin(client, closeUrl);
+  int ResponseStatusCode = restclient.GET();                                            // get запрос
   if (ResponseStatusCode == 200)
   {
     Serial.print("Relay has been switched on! Status: ");
@@ -448,25 +415,13 @@ void open_valve()
   }
 };
 
-// Отправить запрос на выключение реле во время старта
+// Отправить запрос на закрытие клапана во время старта
 void close_valve_startup()
 {
-  restclient.addHeader("Content-Type", "application/json");                            // header
-  String RequestData = "{\"deviceid\":\"1000b91ec6\",\"data\":{\"switch\": \"off\"}}"; // payload
-  int ResponseStatusCode = restclient.POST(RequestData);                               // post запрос
-  if (ResponseStatusCode == 200)
+
+  int ResponseStatusCode = close_valve();                               
+  if (ResponseStatusCode != 200)
   {
-    Serial.print("Relay has been switched off! Status: ");
-    Serial.println(ResponseStatusCode);
-    Serial.println("Valve has been closed");
-    valve_is_opened = false;
-    valveState = "CLOSED";
-    digitalWrite(LED_BUILTIN, HIGH); // выключить светодиод
-  }
-  else
-  {
-    Serial.print("Error! HTTP Response code: ");
-    Serial.println(ResponseStatusCode);
     Serial.println("Recursion");
     return close_valve_startup();
   }
