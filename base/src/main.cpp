@@ -38,7 +38,7 @@ const char *url = "http://192.168.4.2:8081/zeroconf/switch";
 #define DHT_PIN D5   // дата пин датчика DHT22
 #define CLOSE_PIN D3 // пин кнопки для закрытия клапана
 #define OPEN_PIN D7  // пин кнопки для открытия клапана
-
+ 
 // Классы ------------------------------------------------------------------------------------------
 DHT dht(DHT_PIN, DHT_MODEL_DHT22); // объявить объект класса dht
 WiFiClient client;                 // объявить объект класса wifi
@@ -295,35 +295,35 @@ void setup()
       Serial.println(night_temp_delta);
     }; });
 
-  server.on("/wifi_settings", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-      String inputMessage;
+  // server.on("/wifi_settings", HTTP_GET, [](AsyncWebServerRequest *request)
+  //           {
+  //     String inputMessage;
 
-      if (request->hasParam(input_ssid))
-      {
-        inputMessage = request->getParam(input_ssid)->value();
-        writeFile(LittleFS, wifi_ssid_file, inputMessage.c_str());
-        delay(15);
-        wifi_ssid = get_wifi_ssid();
-        Serial.println(wifi_ssid);
-      };
+  //     if (request->hasParam(input_ssid))
+  //     {
+  //       inputMessage = request->getParam(input_ssid)->value();
+  //       writeFile(LittleFS, wifi_ssid_file, inputMessage.c_str());
+  //       delay(15);
+  //       wifi_ssid = get_wifi_ssid();
+  //       Serial.println(wifi_ssid);
+  //     };
 
-      if (request->hasParam("password"))
-      {
-        inputMessage = request->getParam("password")->value();
-        writeFile(LittleFS, wifi_pass_file, inputMessage.c_str());
-        delay(15);
-        wifi_password = get_wifi_pass();
-        Serial.println(wifi_password);
-      };
-      request->send_P(200, "text/plain", "WiFi settings accepted!"); });
+  //     if (request->hasParam("password"))
+  //     {
+  //       inputMessage = request->getParam("password")->value();
+  //       writeFile(LittleFS, wifi_pass_file, inputMessage.c_str());
+  //       delay(15);
+  //       wifi_password = get_wifi_pass();
+  //       Serial.println(wifi_password);
+  //     };
+  //     request->send_P(200, "text/plain", "WiFi settings accepted!"); });
 
   server.onNotFound(notFound);
   server.begin();
   Serial.println("HTTP server started");
 
   // При запуске открыть привод клапана --------------------------------------------------------------
-  close_valve_startup();
+  // close_valve_startup();
 }
 // ---------------------------------------------------------------------------------------------------
 
