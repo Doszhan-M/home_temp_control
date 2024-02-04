@@ -53,7 +53,7 @@ bool valve_is_opened = true;
 String valveState = "OPEN";                       // статус клапана для отображения в html
 float max_temp;                                   // уставка для макс температуры
 float min_temp;                                   // уставка для мин температуры
-uint8_t night_temp_delta;                         // дельта для увеличения уставки в ночное время с 0 до 8
+float night_temp_delta;                         // дельта для увеличения уставки в ночное время с 0 до 8
 float night_max_temp;                             // чтобы ночью увеличит уставку на night_temp_delta градус
 float night_min_temp;                             // чтобы ночью увеличит уставку на night_temp_delta градус
 const char *max_temp_file = "/max.cfg";           // файл для хранения настроек
@@ -138,7 +138,7 @@ void setup()
   // Работа файловой системы -----------------------------------------
   if (LittleFS.begin())
   {
-    night_temp_delta = get_night_temp_delta().toInt();
+    night_temp_delta = get_night_temp_delta().toFloat();
     max_temp = get_max_temp().toFloat();
     min_temp = get_min_temp().toFloat();
     wifi_ssid = get_wifi_ssid();
@@ -282,7 +282,7 @@ void setup()
       };
       writeFile(LittleFS, night_temp_delta_file, inputMessage.c_str());
       delay(15);
-      night_temp_delta = get_night_temp_delta().toInt();
+      night_temp_delta = get_night_temp_delta().toFloat();
       Serial.println(night_temp_delta);
     }; });
 
@@ -334,6 +334,12 @@ void loop()
       float temperature = dht.readTemperature(); // считать температуру
       Serial.print("Temperature: ");
       Serial.println(temperature);
+
+      Serial.print("max_temp: ");
+      Serial.println(max_temp);
+
+      Serial.print("min_temp: ");
+      Serial.println(min_temp);
 
       if (temperature > max_temp && valve_is_opened)
       {
@@ -452,8 +458,8 @@ String get_min_temp()
 String get_night_temp_delta()
 {
   String value = readFile(LittleFS, night_temp_delta_file);
-  uint8_t min = value.toInt();
-  return String(min);
+  float delta = value.toFloat();
+  return String(delta);
 };
 
 String get_wifi_ssid()
@@ -583,6 +589,7 @@ String readFile(fs::FS &fs, const char *path)
   {
     fileContent += String((char)file.read());
   }
+  Serial.printf("fileContent: %s\r\n", fileContent);
   return fileContent;
 };
 
