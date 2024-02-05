@@ -9,7 +9,7 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-#include <FS.h>
+// #include <FS.h>
 #include "LittleFS.h"
 
 #include <Wire.h>
@@ -589,7 +589,6 @@ String readFile(fs::FS &fs, const char *path)
   {
     fileContent += String((char)file.read());
   }
-  Serial.printf("fileContent: %s\r\n", fileContent);
   return fileContent;
 };
 
