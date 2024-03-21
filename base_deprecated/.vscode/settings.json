@@ -2,13 +2,19 @@
     // - - - Настройки cSpell - - - - - - - - - - - - -
     "cSpell.language": "en,ru",
     "cSpell.words": [
-        "энкодера",
-        "APIP",
-        "EEPROM",
+        "Эндпойнты",
         "Erriez",
-        "isrunning",
+        "ssid",
+        "deviceid",
+        "restclient",
+        "xhttp",
         "minut",
-        "Tdelta"
+        "sonoff",
+        "APIP",
+        "Datetime",
+        "термоприводы",
+        "millis",
+        "ASUS",
     ],
     "C_Cpp.errorSquiggles": "Disabled",
     "files.associations": {
@@ -25,8 +31,6 @@
         "functional": "cpp",
         "tuple": "cpp",
         "type_traits": "cpp",
-        "utility": "cpp",
-        "set": "cpp"
-    },
-    "cmake.configureOnOpen": true
+        "utility": "cpp"
+    }
 }
