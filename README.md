@@ -20,4 +20,7 @@ Used Components:
 <img src="https://doszhan-m.github.io/storage/img/scheme2.png" alt="Wiring diagram" width="400"/>
 
 ## Completed:
-<img src="https://doszhan-m.github.io/storage/img/climate_ready4.jpg" alt="Wiring diagram" height="150"/><img src="https://doszhan-m.github.io/storage/img/climate_ready3.jpg" alt="Wiring diagram" height="150"/><img src="https://doszhan-m.github.io/storage/img/climate_ready2.jpg" alt="Wiring diagram" height="150"/><img src="https://doszhan-m.github.io/storage/img/climate_ready1.jpg" alt="Wiring diagram" height="180"/>
+<img src="https://thumb.cloud.mail.ru/thumb/xw1/Images/climate_ready4.jpg" alt="Wiring diagram" height="150"/>
+<!-- <img src="https://doszhan-m.github.io/storage/img/climate_ready3.jpg" alt="Wiring diagram" height="150"/>
+<img src="https://doszhan-m.github.io/storage/img/climate_ready2.jpg" alt="Wiring diagram" height="150"/>
+<img src="https://doszhan-m.github.io/storage/img/climate_ready1.jpg" alt="Wiring diagram" height="180"/> -->
