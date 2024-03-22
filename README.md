@@ -1,4 +1,5 @@
 # Home Temperature Control
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/qYME/RhuFbhk33" alt="Wiring diagram" width="400" height="350"/>
 
 ## Thermal management application on esp8266 NodeMCU V3 module
 
@@ -15,10 +16,7 @@ Used Components:
 
 
 ## Wiring diagram:
-<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/Sbi3/brSmG86gL" alt="Wiring diagram" width="350" height="350"/>
-<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/uJVa/tJB8tkTuR" alt="Wiring diagram" width="350" height="350"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/Sbi3/brSmG86gL" alt="Wiring diagram" width="350" height="330"/> <img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/uJVa/tJB8tkTuR" alt="Wiring diagram" width="350" height="330"/>
 
 ## Completed:
-<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/b8zU/J4Dqv3BDe" alt="Wiring diagram" height="150"/>
-<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/fNHe/wgmHKzXUH" alt="Wiring diagram" height="150"/>
-<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/7mxp/EgxGtMNyh" alt="Wiring diagram" height="150"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/b8zU/J4Dqv3BDe" alt="Wiring diagram" height="150"/> <img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/fNHe/wgmHKzXUH" alt="Wiring diagram" height="150"/> <img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/7mxp/EgxGtMNyh" alt="Wiring diagram" height="150"/>

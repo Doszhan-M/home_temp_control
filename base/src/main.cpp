@@ -96,7 +96,7 @@ void setup() {
   Serial.println(F("\nInitializing DS1307"));
   while (!rtc.begin()) {Serial.println(F("RTC not found"));}
   // Установка времени: 16:31:01, 17 марта 2024 года, воскресенье:
-  rtc.setDateTime(15, 59, 1, 19, 3, 2024, 7);
+  // rtc.setDateTime(18, 5, 1, 22, 3, 2024, 5);
 
   // Initialising file system -----------------------------------------
   if (LittleFS.begin())
@@ -125,6 +125,10 @@ void loop() {
   // Основные разделы
   if (eb.counter == 0 && currentDisplay == "") {
     mainDisplay(curTemp, setTemp, mode, valveState, clearDisp);
+  }
+  if (eb.counter == 0 && currentDisplay == "" && refreshValveState == true) {
+    mainDisplay(curTemp, setTemp, mode, valveState, true);
+    refreshValveState = false;
   }
   if ((eb.counter == 1 || eb.counter == -1) && currentDisplay == "") {
     TsetDisplay(setTemp, clearDisp);
@@ -217,12 +221,12 @@ void loop() {
 
   // Раздел управления температурой
   if (mode == "manual") {
-    if (manualClose == true && valveState == "OPEN")
+    if (manualClose == true && valveState != "CLOSED")
       {
         Serial.print("Manual close");
         close_valve();
       }
-    else if (manualClose == false && valveState == "CLOSED")
+    else if (manualClose == false && valveState != "OPEN")
       {
         Serial.print("Manual open!");
         open_valve();
@@ -230,20 +234,20 @@ void loop() {
   } else {
       getTime();
       if (0 <= hour && hour < 8) {
-        if (curTemp > maxTemp + nightTempDelta && valveState == "OPEN")
+        if (curTemp > maxTemp + nightTempDelta && valveState != "CLOSED")
         {
           close_valve();
         };
-        if (curTemp < minTemp + nightTempDelta && valveState == "CLOSED")
+        if (curTemp < minTemp + nightTempDelta && valveState != "OPEN")
         {
           open_valve();
         };
       } else {
-        if (curTemp > maxTemp && valveState == "OPEN")
+        if (curTemp > maxTemp && valveState != "CLOSED")
         {
           close_valve();
         };
-        if (curTemp < minTemp && valveState == "CLOSED")
+        if (curTemp < minTemp && valveState != "OPEN")
         {
           open_valve();
         };

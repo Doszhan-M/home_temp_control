@@ -2,8 +2,8 @@ extern HTTPClient restClient;
 extern WiFiClient client;
 
 
-String valveState = "CLOSED";
-bool valveIsClose = true;
+String valveState = "UNKNOWN";
+bool refreshValveState = false;
 
 // Отправить запрос на выключение реле
 int close_valve()
@@ -16,7 +16,7 @@ int close_valve()
     Serial.print("Relay has been switched off! Status: ");
     Serial.println(ResponseStatusCode);
     Serial.println("Valve has been closed");
-    valveIsClose = true;
+    refreshValveState = true;
     valveState = "CLOSED";
     String payload = restClient.getString();
     Serial.println(payload);
@@ -40,7 +40,7 @@ int open_valve()
     Serial.print("Relay has been switched on! Status: ");
     Serial.println(ResponseStatusCode);
     Serial.println("Valve has been opened");
-    valveIsClose = false;
+    refreshValveState = true;
     valveState = "OPEN";
   }
   else
