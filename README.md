@@ -1,5 +1,4 @@
 # Home Temperature Control
-![picture](https://doszhan-m.github.io/img/home_climate_control.png)
 
 ## Thermal management application on esp8266 NodeMCU V3 module
 
@@ -16,11 +15,10 @@ Used Components:
 
 
 ## Wiring diagram:
-<img src="https://doszhan-m.github.io/storage/img/scheme1.png" alt="Wiring diagram" width="400"/>
-<img src="https://doszhan-m.github.io/storage/img/scheme2.png" alt="Wiring diagram" width="400"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/Sbi3/brSmG86gL" alt="Wiring diagram" width="350" height="350"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/uJVa/tJB8tkTuR" alt="Wiring diagram" width="350" height="350"/>
 
 ## Completed:
-<img src="https://thumb.cloud.mail.ru/thumb/xw1/Images/climate_ready4.jpg" alt="Wiring diagram" height="150"/>
-<!-- <img src="https://doszhan-m.github.io/storage/img/climate_ready3.jpg" alt="Wiring diagram" height="150"/>
-<img src="https://doszhan-m.github.io/storage/img/climate_ready2.jpg" alt="Wiring diagram" height="150"/>
-<img src="https://doszhan-m.github.io/storage/img/climate_ready1.jpg" alt="Wiring diagram" height="180"/> -->
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/b8zU/J4Dqv3BDe" alt="Wiring diagram" height="150"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/fNHe/wgmHKzXUH" alt="Wiring diagram" height="150"/>
+<img src="https://thumb.cloud.mail.ru/weblink/thumb/xw1/7mxp/EgxGtMNyh" alt="Wiring diagram" height="150"/>
