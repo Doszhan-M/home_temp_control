@@ -11,7 +11,7 @@ Used Components:
 2. DHT22
 3. DS1307
 4. Sonoff Basic R3 (DIY Mode) [manual](https://sonoff.tech/uncategorized/basiczbr3/) , [Sonoff_Devices_DIY_Tools](https://github.com/itead/Sonoff_Devices_DIY_Tools)
-5. Button 3-position
+5. Button 3-position (hw-040)
 6. Electric thermal actuators for heating radiators [bought here](https://aliexpress.ru/item/1005003695755495.html?spm=a2g2w.orderdetail.0.0.61994aa6l1Ep1u&sku_id=12000026837565021)
 
 
