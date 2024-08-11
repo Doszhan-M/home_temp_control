@@ -59,3 +59,17 @@ String getDate()
     return cur_date;
   };
 };
+
+// Установить время, если текущее время отстает от заданного
+void setTimeIfOutdated(uint8_t targetHour, uint8_t targetMinute, uint8_t targetSecond, 
+                       uint8_t targetDay, uint8_t targetMonth, uint16_t targetYear, uint8_t targetWday) {
+  rtc.getDateTime(&hour, &minut, &sec, &mday, &mon, &year, &wday);
+  if (year < targetYear ||
+      (year == targetYear && mon < targetMonth) ||
+      (year == targetYear && mon == targetMonth && mday < targetDay) ||
+      (year == targetYear && mon == targetMonth && mday == targetDay && hour < targetHour) ||
+      (year == targetYear && mon == targetMonth && mday == targetDay && hour == targetHour && minut < targetMinute)) 
+  {
+    rtc.setDateTime(targetHour, targetMinute, targetSecond, targetDay, targetMonth, targetYear, targetWday);
+  }
+}

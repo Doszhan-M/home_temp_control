@@ -32,6 +32,7 @@ const char *password = "rmc6394B";
 
 // Переменные --------------------------------------------------------------------------------------
 float curTemp; 
+float prevTemp;
 float setTemp; 
 const char *setTempFile = "/setTemp.cfg";
 float maxTemp;
@@ -95,8 +96,8 @@ void setup() {
   Wire.setClock(100000);
   Serial.println(F("\nInitializing DS1307"));
   while (!rtc.begin()) {Serial.println(F("RTC not found"));}
-  // Установка времени: 16:31:01, 17 марта 2024 года, воскресенье:
-  // rtc.setDateTime(18, 5, 1, 22, 3, 2024, 5);
+  
+  setTimeIfOutdated(14, 17, 1, 11, 8, 2024, 0);  // 14:17:01, 11 августа 2024 воскресенье
 
   // Initialising file system -----------------------------------------
   if (LittleFS.begin())
@@ -115,12 +116,18 @@ void setup() {
 void loop() {
   eb.tick();
   curTemp = dht.readTemperature();
+
   // Serial.print("curTemp: ");
   // Serial.println(curTemp);
 
   // unsigned int connectedClients = WiFi.softAPgetStationNum();
   // Serial.print("Количество подключенных клиентов: ");
   // Serial.println(connectedClients);
+
+  if (curTemp != prevTemp) {
+    clearDisp = true;
+    prevTemp = curTemp;
+  } 
 
   // Основные разделы
   if (eb.counter == 0 && currentDisplay == "") {
@@ -217,7 +224,6 @@ void loop() {
     }    
   }
   if (eb.turn()) {clearDisp = true;}
-
 
   // Раздел управления температурой
   if (mode == "manual") {
