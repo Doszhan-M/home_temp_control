@@ -47,14 +47,14 @@ const float    FROST_ON_TEMP     = 10.0;               // ниже — клап�
 const float    FROST_OFF_TEMP    = 11.0;               // выше — защита от замерзания снимается
 
 const uint32_t RETURN_MAIN_MS    = 60000;              // минута без нажатий — на главный экран
-const uint32_t SAVER_MS          = 3UL * 60 * 1000;    // 3 мин без нажатий — хранитель экрана
+const uint32_t SAVER_MS          = 60000;              // минута без нажатий — хранитель экрана
 const uint32_t SAVER_MOVE_MS     = 60000;              // блок хранителя сдвигается раз в минуту
 const uint32_t WARNING_PHASE_MS  = 2000;               // предупреждение чередуется с режимом
 const uint32_t RELAY_GRACE_MS    = 35000;              // после запуска не пугать NO LINK: реле нужно до 30 с,
                                                        // чтобы переподключиться, повтор команды — на ~32 с
 const uint32_t SAVED_MSG_MS      = 1000;               // сколько показывать "Saved" после сохранения
 const uint8_t  FAST_TURN_MS      = 50;                 // щелчки чаще — быстрое вращение, шаг больше
-const uint8_t  SAVER_CONTRAST    = 20;                 // яркость хранителя экрана (0..255)
+const uint8_t  SAVER_CONTRAST    = 10;                 // яркость хранителя экрана (0..255)
 const uint8_t  NORMAL_CONTRAST   = 0xCF;               // яркость по умолчанию драйвера SSD1306
 
 const float DEFAULT_SET_TEMP = 22.0;

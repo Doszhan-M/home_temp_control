@@ -15,7 +15,7 @@ All control is local, on the device itself, with a rotary encoder and an OLED di
 - night period (default 00:00–08:00, or off)
 - date and time (set from the encoder; the RTC keeps it on battery)
 
-After 3 minutes without input the screen switches to a dimmed screensaver: a large temperature, the valve state with how long it has been in it, and humidity, moving slowly so the OLED does not burn in. Any touch of the encoder wakes it.
+After 1 minute without input the screen switches to a dimmed screensaver: a large temperature, the valve state with how long it has been in it, and humidity, moving slowly so the OLED does not burn in. Any touch of the encoder wakes it.
 
 Safety: below 10 °C the valve opens in any mode (frost protection). If the RTC lost its time (battery), the main screen shows SET TIME! and the night mode stays off until the time is set from the encoder.
 
