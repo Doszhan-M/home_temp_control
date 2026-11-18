@@ -3,7 +3,7 @@
 
 ## Thermal management application on esp8266 NodeMCU V3 module
 
-The controller keeps the room temperature within a set interval (±0.2 °C) by opening and closing the thermal actuators on the radiators. In auto mode the valve switches at most once every 5 minutes, so the slow actuators do not chatter. At night the setpoint is raised by a configurable delta.
+The controller keeps the room temperature within a set interval (±0.2 °C) by opening and closing the thermal actuators on the radiators. In auto mode the valve switches at most once every 10 seconds, so a single noisy reading does not toggle it back and forth. At night the setpoint is raised by a configurable delta.
 
 All control is local, on the device itself, with a rotary encoder and an OLED display. Turn the encoder to switch screens, click to edit, turn to change, hold to save:
 

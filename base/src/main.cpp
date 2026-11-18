@@ -35,7 +35,7 @@ const char *ssid = "Actuator";
 const char *password = "rmc6394B";
 
 const float    HYSTERESIS        = 0.2;                // клапан переключается при отклонении на ±0.2 °C
-const uint32_t MIN_SWITCH_MS     = 5UL * 60 * 1000;    // в авто клапан переключается не чаще раза в 5 мин
+const uint32_t MIN_SWITCH_MS     = 10UL * 1000;        // в авто клапан переключается не чаще раза в 10 с
 const uint32_t SENSOR_PERIOD_MS  = 2500;               // DHT22 не чаще раза в 2 с
 const uint32_t SENSOR_FAIL_MS    = 60000;              // нет данных минуту — ошибка датчика
 const uint32_t CLOCK_PERIOD_MS   = 1000;
