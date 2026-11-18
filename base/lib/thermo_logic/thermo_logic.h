@@ -26,6 +26,42 @@ inline Valve decideValve(float cur, float target, float hyst, Valve current) {
   return current;
 }
 
+// Защита от замерзания с гистерезисом: включается ниже onTemp, выключается выше offTemp.
+// Если температура неизвестна (NaN), состояние не меняется.
+inline bool frostProtection(bool active, float cur, float onTemp, float offTemp) {
+  if (cur != cur) return active;
+  if (cur < onTemp) return true;
+  if (cur > offTemp) return false;
+  return active;
+}
+
+inline float median3(float a, float b, float c) {
+  if (a > b) { float t = a; a = b; b = t; }   // теперь a <= b
+  if (b > c) b = c;                            // b = min(b, c)
+  return a > b ? a : b;                        // max(a, min(b, c)) — средний из трёх
+}
+
+// Медиана трёх последних измерений: одиночный выброс датчика отбрасывается.
+// Пока измерений меньше трёх, возвращается последнее.
+class Median3 {
+ public:
+  float push(float v) {
+    buf_[pos_] = v;
+    pos_ = (pos_ + 1) % 3;
+    if (count_ < 3) count_++;
+    last_ = v;
+    return value();
+  }
+  float value() const { return count_ < 3 ? last_ : median3(buf_[0], buf_[1], buf_[2]); }
+  void reset() { count_ = 0; pos_ = 0; }
+
+ private:
+  float buf_[3] = {0, 0, 0};
+  float last_ = 0;
+  uint8_t pos_ = 0;
+  uint8_t count_ = 0;
+};
+
 // Прошло ли interval мс с момента last. Корректно при переполнении millis() (~49 дней).
 inline bool intervalPassed(uint32_t now, uint32_t last, uint32_t interval) {
   return (uint32_t)(now - last) >= interval;

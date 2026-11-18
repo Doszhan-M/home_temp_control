@@ -45,23 +45,51 @@ void drawHint(const char *text) {
   display.setTextAlignment(TEXT_ALIGN_LEFT);
 }
 
-// Главный экран
+// Главный экран. warning (например "SET TIME!") по очереди с режимом в нижней строке.
 void mainDisplay(float tempCur, float setTemp, const char *mode, bool night,
-                 const char *valve, bool relayLink) {
+                 const char *valve, bool relayLink, const char *warning, bool showWarning) {
   char buf[24];
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_16);
   if (tempCur == tempCur) snprintf(buf, sizeof(buf), "Temp: %.1f°C", tempCur);
-  else snprintf(buf, sizeof(buf), "Temp: SENSOR ERR");
+  else snprintf(buf, sizeof(buf), "Temp: ERR");
   display.drawString(0, 0, buf);
   snprintf(buf, sizeof(buf), "Valve: %s", relayLink ? valve : "NO LINK");
   display.drawString(0, 16, buf);
   snprintf(buf, sizeof(buf), "Tset: %.1f°C", setTemp);
   display.drawString(0, 32, buf);
-  snprintf(buf, sizeof(buf), "Mode: %s%s", mode, night ? " (N)" : "");
+  if (warning && showWarning) snprintf(buf, sizeof(buf), "%s", warning);
+  else snprintf(buf, sizeof(buf), "Mode: %s%s", mode, night ? " (N)" : "");
   display.drawString(0, 48, buf);
   display.display();
+}
+
+// Хранитель экрана: крупная температура и клапан, блок стоит в (x, y) синей зоны.
+// Допустимо: y от 11 до 25, x от 0 до 128 - ширина блока (см. saverBlockWidth).
+void saverDisplay(int16_t x, int16_t y, float tempCur, const char *status) {
+  char buf[12];
+  if (tempCur == tempCur) snprintf(buf, sizeof(buf), "%.1f°", tempCur);
+  else snprintf(buf, sizeof(buf), "ERR");
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_24);
+  display.drawString(x, y, buf);
+  display.setFont(ArialMT_Plain_10);
+  display.drawString(x, y + 26, status);
+  display.display();
+}
+
+// Ширина блока хранителя экрана, чтобы выбрать, куда его можно сдвинуть
+int16_t saverBlockWidth(float tempCur, const char *status) {
+  char buf[12];
+  if (tempCur == tempCur) snprintf(buf, sizeof(buf), "%.1f°", tempCur);
+  else snprintf(buf, sizeof(buf), "ERR");
+  display.setFont(ArialMT_Plain_24);
+  int16_t w1 = display.getStringWidth(String(buf));
+  display.setFont(ArialMT_Plain_10);
+  int16_t w2 = display.getStringWidth(String(status));
+  return w1 > w2 ? w1 : w2;
 }
 
 // Экран одной настройки: заголовок + значение. editing — режим правки.

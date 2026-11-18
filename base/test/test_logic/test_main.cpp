@@ -87,9 +87,36 @@ void test_history() {
   TEST_ASSERT_EQUAL(30, h.maxValue());
 }
 
+void test_median() {
+  TEST_ASSERT_EQUAL_FLOAT(2, median3(1, 2, 3));
+  TEST_ASSERT_EQUAL_FLOAT(2, median3(3, 2, 1));
+  TEST_ASSERT_EQUAL_FLOAT(2, median3(2, 3, 1));
+  TEST_ASSERT_EQUAL_FLOAT(2, median3(1, 3, 2));
+  TEST_ASSERT_EQUAL_FLOAT(5, median3(5, 5, 9));
+
+  Median3 m;
+  TEST_ASSERT_EQUAL_FLOAT(22.0, m.push(22.0));    // меньше трёх — последнее
+  TEST_ASSERT_EQUAL_FLOAT(22.1, m.push(22.1));
+  TEST_ASSERT_EQUAL_FLOAT(22.1, m.push(22.2));
+  TEST_ASSERT_EQUAL_FLOAT(22.2, m.push(35.0));    // выброс 35 отброшен
+  TEST_ASSERT_EQUAL_FLOAT(22.3, m.push(22.3));    // окно 35, 22.3, 22.2
+  TEST_ASSERT_EQUAL_FLOAT(22.4, m.push(22.4));    // окно 35, 22.3, 22.4
+  TEST_ASSERT_EQUAL_FLOAT(22.4, m.push(22.5));    // выброс ушёл из окна: 22.5, 22.3, 22.4
+}
+
+void test_frost() {
+  TEST_ASSERT_TRUE(frostProtection(false, 9.9, 10, 11));
+  TEST_ASSERT_FALSE(frostProtection(false, 10.5, 10, 11));  // ещё не включилась
+  TEST_ASSERT_TRUE(frostProtection(true, 10.5, 10, 11));    // гистерезис: держится
+  TEST_ASSERT_FALSE(frostProtection(true, 11.1, 10, 11));
+  TEST_ASSERT_TRUE(frostProtection(true, NAN, 10, 11));     // датчик молчит — без изменений
+}
+
 void setup() {
   delay(2000);   // дать монитору порта подключиться
   UNITY_BEGIN();
+  RUN_TEST(test_median);
+  RUN_TEST(test_frost);
   RUN_TEST(test_night_hours);
   RUN_TEST(test_decide_valve);
   RUN_TEST(test_interval_overflow);

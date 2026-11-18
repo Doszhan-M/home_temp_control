@@ -15,6 +15,10 @@ All control is local, on the device itself, with a rotary encoder and an OLED di
 - night period (default 00:00–08:00, or off)
 - date and time (set from the encoder; the RTC keeps it on battery)
 
+After 3 minutes without input the screen switches to a dimmed screensaver: a large temperature and the valve state, moving slowly so the OLED does not burn in. Any touch of the encoder wakes it.
+
+Safety: below 10 °C the valve opens in any mode (frost protection). If the RTC lost its time (battery), the main screen shows SET TIME! and the night mode stays off until the time is set from the encoder.
+
 The controller runs its own Wi-Fi access point, used only to send open/close commands to the relay module. The command is repeated every minute. If the relay module gets no commands for 10 minutes, it opens the valve, so the house does not freeze when the controller fails.
 
 Earlier versions also connected to the home Wi-Fi router and served a mobile web page. In practice this was unnecessary for this project, so both were removed: local control on the device is enough. Firmware updates are done over USB.
