@@ -475,7 +475,7 @@ void handleEncoder(uint32_t nowMs) {
 // Возврат на главный экран, хранитель экрана, мигающая точка ----------------------------------------
 void moveSaver() {
   // ширина по самой длинной надписи под температурой, чтобы смена статуса не вылезла за край
-  int16_t maxX = 128 - saverBlockWidth(curTemp, "CLOSED 99m  100%");
+  int16_t maxX = 128 - saverBlockWidth(curTemp, "RTC ERROR!");
   if (maxX < 0) maxX = 0;
   // по кругу через всю синюю зону, чтобы пиксели изнашивались равномерно
   saverX = (saverX + 37) % (maxX + 1);
@@ -545,17 +545,15 @@ void render() {
   bool linkOk = relayLink || !relayGraceOver;
 
   if (saver) {
-    // строка под температурой: клапан и сколько он в этом положении, влажность
+    // строка под температурой: клапан и сколько он в этом положении (влажность — только на графике)
     char status[32];
-    char hum[8] = "";
-    if (curHum == curHum) snprintf(hum, sizeof(hum), "  %.0f%%", curHum);
     if (warning && warningPhase) snprintf(status, sizeof(status), "%s", warning);
-    else if (frostActive) snprintf(status, sizeof(status), "FROST%s", hum);
-    else if (!linkOk) snprintf(status, sizeof(status), "NO LINK%s", hum);
+    else if (frostActive) snprintf(status, sizeof(status), "FROST");
+    else if (!linkOk) snprintf(status, sizeof(status), "NO LINK");
     else {
       char dur[8];
       formatDuration(dur, sizeof(dur), millis() - lastSwitchMs);
-      snprintf(status, sizeof(status), "%s %s%s", valveName(valveState), dur, hum);
+      snprintf(status, sizeof(status), "%s %s", valveName(valveState), dur);
     }
     saverDisplay(saverX, saverY, curTemp, status);
     return;
