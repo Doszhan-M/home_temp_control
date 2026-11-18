@@ -47,6 +47,10 @@ void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   openValve();                        // при старте клапан открыт (безопасное состояние)
 
+  // Не сохранять настройки Wi-Fi во флеш: иначе каждое переподключение (раз в 30 с, пока нет
+  // связи с base) записывает флеш-память дважды, и за дни без связи она изнашивается.
+  // Имя сети и пароль всё равно задаются в коде при каждом запуске.
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.config(relayIp, gatewayIp, subnetMask);
   WiFi.setAutoReconnect(true);
@@ -102,7 +106,7 @@ void checkWifi()
   lastWifiCheckMs = millis();
   if (WiFi.status() == WL_CONNECTED) return;
   if (millis() - lastWifiBeginMs >= WIFI_RECONNECT_MS) {
-    WiFi.disconnect();
+    WiFi.disconnect();   // при persistent(false) только в RAM, флеш не трогается
     wifiBegin();
   }
 }
