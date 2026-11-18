@@ -19,6 +19,20 @@ String readFile(fs::FS &fs, const char *path)
   return fileContent;
 };
 
+// Считать число из файла. Если файла нет или значение вне [lo, hi] — вернуть def.
+float readFloatSetting(fs::FS &fs, const char *path, float def, float lo, float hi)
+{
+  String value = readFile(fs, path);
+  value.trim();
+  if (value.length() == 0) return def;
+  float v = value.toFloat();
+  if (v < lo || v > hi) {
+    Serial.printf("- value %s out of range, using default\r\n", value.c_str());
+    return def;
+  }
+  return v;
+}
+
 // Записать настройки в пзу память ------------------------------------------
 void writeFile(fs::FS &fs, const char *path, const char *message)
 {

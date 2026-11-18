@@ -3,9 +3,19 @@
 
 ## Thermal management application on esp8266 NodeMCU V3 module
 
-The controller keeps the room temperature within a set interval by opening and closing the thermal actuators on the radiators. At night (00:00–08:00) the setpoint is raised by a configurable delta.
+The controller keeps the room temperature within a set interval (±0.2 °C) by opening and closing the thermal actuators on the radiators. In auto mode the valve switches at most once every 5 minutes, so the slow actuators do not chatter. At night the setpoint is raised by a configurable delta.
 
-All control is local, on the device itself, with a rotary encoder and an OLED display: setpoint, mode (auto / manual open / manual close), night delta, current date and time. The controller runs its own Wi-Fi access point, used only to send open/close commands to the relay module.
+All control is local, on the device itself, with a rotary encoder and an OLED display. Turn the encoder to switch screens, click to edit, turn to change, hold to save:
+
+- main screen: temperature, valve state, setpoint, mode
+- setpoint
+- mode: auto / manual open / manual close (kept after a power loss)
+- night delta
+- date and time (set from the encoder; the RTC keeps it on battery)
+- night period (default 00:00–08:00, or off)
+- temperature graph for the last 24 hours
+
+The controller runs its own Wi-Fi access point, used only to send open/close commands to the relay module. The command is repeated every minute. If the relay module gets no commands for 10 minutes, it opens the valve, so the house does not freeze when the controller fails.
 
 Earlier versions also connected to the home Wi-Fi router and served a mobile web page. In practice this was unnecessary for this project, so both were removed: local control on the device is enough. Firmware updates are done over USB.
 

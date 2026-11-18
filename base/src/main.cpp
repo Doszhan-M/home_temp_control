@@ -7,6 +7,7 @@
 #include <ErriezDS1307.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
+#include <thermo_logic.h>
 
 #include "display_funcs.h"
 #include "file_system_funcs.h"
@@ -25,32 +26,82 @@ ErriezDS1307 rtc;                         // объект класса часо�
 HTTPClient restClient;                    // объект класса rest клиента
 WiFiClient client;                        // объект класса wifi
 
+using thermo::intervalPassed;
+using thermo::roundTenth;
+using thermo::wrapValue;
 
 // Константы --------------------------------------------------------------------------------------
 const char *ssid = "Actuator";
 const char *password = "rmc6394B";
 
-// Переменные --------------------------------------------------------------------------------------
-float curTemp; 
-float prevTemp;
-float setTemp; 
-const char *setTempFile = "/setTemp.cfg";
-float maxTemp;
-float minTemp;
-float nightTempDelta = 0.5;                      // дельта для увеличения уставки в ночное время с 0 до 8
-const char *deltaFile = "/delta.cfg";
-bool clearDisp = false;
-String currentDisplay = "";
-String mode = "auto";
-bool manualClose = false;
-bool localManualClose = false;
+const float    HYSTERESIS        = 0.2;                // клапан переключается при отклонении на ±0.2 °C
+const uint32_t MIN_SWITCH_MS     = 5UL * 60 * 1000;    // в авто клапан переключается не чаще раза в 5 мин
+const uint32_t SENSOR_PERIOD_MS  = 2500;               // DHT22 не чаще раза в 2 с
+const uint32_t SENSOR_FAIL_MS    = 60000;              // нет данных минуту — ошибка датчика
+const uint32_t CLOCK_PERIOD_MS   = 1000;
+const uint32_t EDIT_TIMEOUT_MS   = 30000;              // правка без нажатий 30 с — отмена
+const uint32_t BLINK_MS          = 400;
+const uint32_t HISTORY_PERIOD_MS = 15UL * 60 * 1000;   // точка графика раз в 15 мин: 96 точек = 24 ч
 
+const float DEFAULT_SET_TEMP = 22.0;
+const float DEFAULT_DELTA    = 0.5;
+
+const char *setTempFile = "/setTemp.cfg";
+const char *deltaFile   = "/delta.cfg";
+const char *nightFile   = "/night.cfg";   // "0,8" — начало и конец ночи в часах
+const char *modeFile    = "/mode.cfg";    // auto / open / close
+
+// Состояние --------------------------------------------------------------------------------------
+enum class Mode : uint8_t { Auto, Open, Close };
+enum Screen : uint8_t { SCR_MAIN, SCR_TSET, SCR_MODE, SCR_DELTA, SCR_DATETIME, SCR_NIGHT, SCR_GRAPH, SCREEN_COUNT };
+enum class Edit : uint8_t { None, Tset, Mode, Delta, DateTime, Night };
+
+// настройки
+float setTemp = DEFAULT_SET_TEMP;
+float nightTempDelta = DEFAULT_DELTA;   // дельта для увеличения уставки ночью
+uint8_t nightStart = 0, nightEnd = 8;
+Mode mode = Mode::Auto;
+
+// измерения
+float curTemp = NAN;
+bool sensorOk = false;
+uint32_t lastSensorMs = 0, lastValidTempMs = 0;
+thermo::History<96> history;
+float historySum = 0;
+uint16_t historyCount = 0;
+uint32_t lastHistoryMs = 0;
+bool historyStarted = false;
+
+// управление
+Valve desiredValve = Valve::Unknown;
+uint32_t lastSwitchMs = 0;
+bool forceDecision = true;   // следующее решение термостата без ожидания MIN_SWITCH_MS
+bool isNight = false;
+
+// интерфейс
+Screen screen = SCR_MAIN;
+Edit edit = Edit::None;
+bool redraw = true;
+uint32_t lastInputMs = 0, lastBlinkMs = 0, lastClockMs = 0;
+bool blinkOn = true;
+int8_t editField = 0;
+float editTemp, editDelta;
+Mode editMode;
+uint8_t editHour, editMinute, editDay, editMonth, editNightStart, editNightEnd;
+uint16_t editYear;
+uint8_t shownMinute = 255;
 
 // Functions ---------------------------------------------------------------------------------
-void getSetTemp();
-void getNightTempDelta();
-void saveSetTemp(float temp);
-void saveDeltaTemp(float temp);
+void loadSettings();
+void saveFloat(const char *path, float value);
+void saveNight();
+void saveMode();
+const char *modeName(Mode m);
+void readSensor(uint32_t nowMs);
+void updateClock(uint32_t nowMs);
+void updateControl(uint32_t nowMs);
+void handleEncoder(uint32_t nowMs);
+void render();
 
 
 // Initializing -------------------------------------------------------------------------------------
@@ -59,233 +110,372 @@ void setup() {
   Serial.println("Initializing...");
 
   // Определение пинов  -----------------------------------------
-  pinMode(ENC_VCC, OUTPUT);    
+  pinMode(ENC_VCC, OUTPUT);
   digitalWrite(ENC_VCC, HIGH);
 
   // Точка доступа для relay ------------------------------------------------------------------
-  Serial.print("Access Point:");   // Выводим информацию через последовательный монитор
-  Serial.println(ssid);            // Сообщаем пользователю имя WiFi, установленное NodeMCU
-  WiFi.softAP(ssid, password);     // WiFi.softAP используется для запуска режима AP NodeMCU.
-  Serial.print("IP-адрес:");       // И IP-адрес NodeMCU
-  Serial.println(WiFi.softAPIP()); // IP-адрес NodeMCU можно получить, вызвав WiFi.softAPIP ()
-  // -------------------------------------------------------------------------------------------
+  Serial.print("Access Point:");
+  Serial.println(ssid);
+  WiFi.softAP(ssid, password);
+  Serial.print("IP:");
+  Serial.println(WiFi.softAPIP());
 
-  // Initialising the display  -----------------------------------------
+  // Дисплей -----------------------------------------------------
   display.init();
   display.flipScreenVertically();
-  clearDisplay();
   startMessage();
 
-  // Старт датчика DHT22 ----------------------------------------------
-  pinMode(DHT_PIN, INPUT);     // D5 пин в режиме входа
+  // Датчик DHT22: при ошибке продолжаем, на экране будет SENSOR ERR
+  pinMode(DHT_PIN, INPUT);
   dht.begin();
-  Serial.println(F("\nInitializing DHT22"));
-  if (dht.getError() != DHT_ERROR_NONE)
-  {
-    Serial.print("Error: ");
-    Serial.println(dht.getErrorString());
-    return;
-  }
-  // -------------------------------------------------------------------
+  Serial.println(F("Initializing DHT22"));
 
-  // Initialising the Encoder-----------------------------------------
+  // Энкодер
   eb.setEncType(EB_STEP2);
 
-  // Старт датчика DS1307; ----------------------------------------------
+  // Часы DS1307: без них работаем дальше, только без ночного режима
   Wire.begin();
   Wire.setClock(100000);
-  Serial.println(F("\nInitializing DS1307"));
-  while (!rtc.begin()) {Serial.println(F("RTC not found"));}
-  
-  setTimeFromBuild(20);  // время компиляции прошивки + 20 с на загрузку
-
-  // Initialising file system -----------------------------------------
-  if (LittleFS.begin())
-  {
-    getSetTemp();
-    getNightTempDelta();
+  Serial.println(F("Initializing DS1307"));
+  if (initClock()) {
+    setTimeFromBuild(20);   // время компиляции прошивки + 20 с на загрузку
   }
-  else
-  {
-    Serial.println("Error while mounting LittleFS");
-    return;
-  }  
+  readClock();
+
+  // Настройки: без файловой системы работаем со значениями по умолчанию
+  if (LittleFS.begin()) {
+    loadSettings();
+  } else {
+    Serial.println("Error while mounting LittleFS, using defaults");
+  }
+
+  uint32_t nowMs = millis();
+  lastSensorMs = nowMs - SENSOR_PERIOD_MS;   // первое чтение датчика сразу
+  lastValidTempMs = nowMs;
+  lastInputMs = nowMs;
 }
 
 // Main Loop ------------------------------------------------------------------------------------------
 void loop() {
+  uint32_t nowMs = millis();
   eb.tick();
-  curTemp = dht.readTemperature();
 
-  // Serial.print("curTemp: ");
-  // Serial.println(curTemp);
+  readSensor(nowMs);
+  updateClock(nowMs);
+  handleEncoder(nowMs);
+  updateControl(nowMs);
 
-  // unsigned int connectedClients = WiFi.softAPgetStationNum();
-  // Serial.print("Количество подключенных клиентов: ");
-  // Serial.println(connectedClients);
-
-  if (curTemp != prevTemp) {
-    clearDisp = true;
-    prevTemp = curTemp;
-  } 
-
-  // Основные разделы
-  if (eb.counter == 0 && currentDisplay == "") {
-    mainDisplay(curTemp, setTemp, mode, valveState, clearDisp);
-  }
-  if (eb.counter == 0 && currentDisplay == "" && refreshValveState == true) {
-    mainDisplay(curTemp, setTemp, mode, valveState, true);
-    refreshValveState = false;
-  }
-  if ((eb.counter == 1 || eb.counter == -1) && currentDisplay == "") {
-    TsetDisplay(setTemp, clearDisp);
-    if (eb.click()) {
-      currentDisplay = changeTsetDisplay(setTemp);
-    }
-  }
-  if ((eb.counter == 2 || eb.counter == -2) && currentDisplay == "") {
-    modeDisplay(mode, clearDisp);
-    if (eb.click()) {
-      currentDisplay = changeModeDisplay(mode);
-    }    
-  }    
-  if ((eb.counter == 3 || eb.counter == -3) && currentDisplay == "") {
-    deltaSetDisplay(nightTempDelta, clearDisp);
-    if (eb.click()) {
-      currentDisplay = deltaChangeDisplay(nightTempDelta);
-    }    
-  }    
-  if ((eb.counter == 4 || eb.counter == -4) && currentDisplay == "") {
-    cur_time = getTime();
-    cur_date = getDate();
-    dateTimetDisplay(cur_time, cur_date, clearDisp);
-  }    
-  if ((eb.counter > 4 || eb.counter < -4) && currentDisplay == "") {
-    eb.counter = 0;
-  } 
-  clearDisp = false;
-   
-  // Раздел для изменения уставки
-  if (currentDisplay == "changeTset") {
-    if (eb.left()) {
-      setTemp = setTemp + 0.1;
-      changeTsetDisplay(setTemp);
-    };
-    if (eb.right()) {
-      setTemp = setTemp - 0.1;
-      changeTsetDisplay(setTemp);
-    };
-    if (eb.hold()) {
-      saveSetTemp(setTemp);
-      eb.counter = 1;
-      currentDisplay = "";
-      clearDisp = true;
-    }    
-  }
-  if (currentDisplay == "changeMode") {
-    if (eb.left()) {
-      mode = "auto";
-      changeModeDisplay(mode);
-    };
-    if (eb.right()) {
-      mode = "neutral";
-      localManualClose = !localManualClose;
-      if (localManualClose == false) {
-        changeModeDisplay("open");
-      }
-      if (localManualClose == true) {
-        changeModeDisplay("close");
-      }
-    };
-    if (eb.hold()) {
-      eb.counter = 2;
-      currentDisplay = "";
-      clearDisp = true;
-      if (mode == "neutral") {
-        mode = "manual";
-        manualClose = localManualClose;
-      }
-    }    
-  }
-  if (currentDisplay == "changeDelta") {
-    if (eb.left()) {
-      nightTempDelta = nightTempDelta + 0.1;
-      deltaChangeDisplay(nightTempDelta);
-    };
-    if (eb.right()) {
-      nightTempDelta = nightTempDelta - 0.1;
-      deltaChangeDisplay(nightTempDelta);
-    };
-    if (eb.hold()) {
-      saveDeltaTemp(nightTempDelta);
-      eb.counter = 3;
-      currentDisplay = "";
-      clearDisp = true;
-    }    
-  }
-  if (eb.turn()) {clearDisp = true;}
-
-  // Раздел управления температурой
-  if (mode == "manual") {
-    if (manualClose == true && valveState != "CLOSED")
-      {
-        Serial.print("Manual close");
-        close_valve();
-      }
-    else if (manualClose == false && valveState != "OPEN")
-      {
-        Serial.print("Manual open!");
-        open_valve();
-      }
-  } else {
-      getTime();
-      if (0 <= hour && hour < 8) {
-        if (curTemp > maxTemp + nightTempDelta && valveState != "CLOSED")
-        {
-          close_valve();
-        };
-        if (curTemp < minTemp + nightTempDelta && valveState != "OPEN")
-        {
-          open_valve();
-        };
-      } else {
-        if (curTemp > maxTemp && valveState != "CLOSED")
-        {
-          close_valve();
-        };
-        if (curTemp < minTemp && valveState != "OPEN")
-        {
-          open_valve();
-        };
-      }
+  if (redraw) {
+    redraw = false;
+    render();
   }
 }
 
 
-void getSetTemp()
-{
-  String value = readFile(LittleFS, setTempFile);
-  setTemp = value.toFloat();
-  maxTemp = setTemp + 0.1; 
-  minTemp = setTemp - 0.1;   
-};
+// Датчик и история -----------------------------------------------------------------------------------
+void readSensor(uint32_t nowMs) {
+  if (!intervalPassed(nowMs, lastSensorMs, SENSOR_PERIOD_MS)) return;
+  lastSensorMs = nowMs;
 
-void saveSetTemp(float temp)
-{
-  String tempStr = String(temp);
-  writeFile(LittleFS, setTempFile, tempStr.c_str());
-  maxTemp = temp + 0.1; 
-  minTemp = temp - 0.1;   
-};
+  float t = dht.readTemperature();
+  if (t == t) {
+    if (!sensorOk || roundTenth(t) != roundTenth(curTemp)) redraw = true;
+    curTemp = t;
+    sensorOk = true;
+    lastValidTempMs = nowMs;
+    historySum += t;
+    historyCount++;
+    if (!historyStarted) {             // первая точка графика — сразу
+      history.push((int16_t)roundf(t * 10));
+      historySum = 0;
+      historyCount = 0;
+      lastHistoryMs = nowMs;
+      historyStarted = true;
+    }
+  } else if (sensorOk && intervalPassed(nowMs, lastValidTempMs, SENSOR_FAIL_MS)) {
+    Serial.println(F("DHT22: no data, sensor error"));
+    sensorOk = false;
+    curTemp = NAN;                     // термостат не трогает клапан
+    redraw = true;
+  }
 
-void getNightTempDelta()
-{
-  String value = readFile(LittleFS, deltaFile);
-  nightTempDelta = value.toFloat();
-};
+  if (historyStarted && intervalPassed(nowMs, lastHistoryMs, HISTORY_PERIOD_MS)) {
+    lastHistoryMs = nowMs;
+    if (historyCount > 0) {            // среднее за 15 минут
+      history.push((int16_t)roundf(historySum / historyCount * 10));
+      historySum = 0;
+      historyCount = 0;
+      if (screen == SCR_GRAPH) redraw = true;
+    }
+  }
+}
 
-void saveDeltaTemp(float nightTempDelta)
-{
-  String tempStr = String(nightTempDelta);
-  writeFile(LittleFS, deltaFile, tempStr.c_str());
-};
+// Часы ----------------------------------------------------------------------------------------------
+void updateClock(uint32_t nowMs) {
+  if (!intervalPassed(nowMs, lastClockMs, CLOCK_PERIOD_MS)) return;
+  lastClockMs = nowMs;
+
+  bool wasValid = timeValid;
+  readClock();
+  bool night = timeValid && thermo::isNightHour(now_t.hour, nightStart, nightEnd);
+  if (night != isNight) {
+    isNight = night;
+    forceDecision = true;              // смена дня/ночи — уставка изменилась
+    redraw = true;
+  }
+  if (screen == SCR_DATETIME && edit == Edit::None &&
+      (wasValid != timeValid || shownMinute != now_t.minute)) {
+    redraw = true;
+  }
+}
+
+// Термостат -------------------------------------------------------------------------------------------
+void updateControl(uint32_t nowMs) {
+  Valve want = desiredValve;
+  if (mode == Mode::Open) {
+    want = Valve::Open;
+  } else if (mode == Mode::Close) {
+    want = Valve::Closed;
+  } else {
+    float target = setTemp + (isNight ? nightTempDelta : 0);
+    Valve decision = thermo::decideValve(curTemp, target, HYSTERESIS, desiredValve);
+    if (decision != desiredValve &&
+        (forceDecision || desiredValve == Valve::Unknown || intervalPassed(nowMs, lastSwitchMs, MIN_SWITCH_MS))) {
+      want = decision;
+    }
+  }
+  forceDecision = false;
+
+  if (want != desiredValve) {
+    Serial.printf("Valve: %s -> %s (temp %.1f)\n", valveName(desiredValve), valveName(want), curTemp);
+    desiredValve = want;
+    lastSwitchMs = nowMs;
+  }
+  if (syncRelay(desiredValve, nowMs) && screen == SCR_MAIN) redraw = true;
+}
+
+// Энкодер ---------------------------------------------------------------------------------------------
+void startEdit() {
+  editField = 0;
+  switch (screen) {
+    case SCR_TSET:  editTemp = setTemp;         edit = Edit::Tset;  break;
+    case SCR_MODE:  editMode = mode;            edit = Edit::Mode;  break;
+    case SCR_DELTA: editDelta = nightTempDelta; edit = Edit::Delta; break;
+    case SCR_DATETIME:
+      editHour = now_t.hour;  editMinute = now_t.minute;
+      editDay = now_t.day;    editMonth = now_t.month;
+      editYear = now_t.year < 2024 ? 2024 : now_t.year;
+      edit = Edit::DateTime;
+      break;
+    case SCR_NIGHT:
+      editNightStart = nightStart;
+      editNightEnd = nightEnd;
+      edit = Edit::Night;
+      break;
+    default:
+      break;   // на главном экране и графике правки нет
+  }
+}
+
+void finishEdit() {
+  edit = Edit::None;
+  eb.counter = screen;   // повороты во время правки не должны листать меню
+  shownMinute = 255;
+  redraw = true;
+}
+
+void saveEdit() {
+  switch (edit) {
+    case Edit::Tset:
+      setTemp = editTemp;
+      saveFloat(setTempFile, setTemp);
+      forceDecision = true;
+      break;
+    case Edit::Mode:
+      mode = editMode;
+      saveMode();
+      forceDecision = true;
+      break;
+    case Edit::Delta:
+      nightTempDelta = editDelta;
+      saveFloat(deltaFile, nightTempDelta);
+      forceDecision = true;
+      break;
+    case Edit::DateTime:
+      writeClock(editHour, editMinute, 0, editDay, editMonth, editYear);
+      break;
+    case Edit::Night:
+      nightStart = editNightStart;
+      nightEnd = editNightEnd;
+      saveNight();
+      lastClockMs = millis() - CLOCK_PERIOD_MS;   // сразу пересчитать день/ночь
+      break;
+    default:
+      break;
+  }
+}
+
+void changeValue(int8_t dir) {
+  switch (edit) {
+    case Edit::Tset:
+      editTemp = constrain(roundTenth(editTemp + 0.1f * dir), 5.0f, 35.0f);
+      break;
+    case Edit::Mode:
+      // как раньше: влево — авто, вправо — переключение открыть/закрыть
+      if (dir > 0) editMode = Mode::Auto;
+      else editMode = (editMode == Mode::Open) ? Mode::Close : Mode::Open;
+      break;
+    case Edit::Delta:
+      editDelta = constrain(roundTenth(editDelta + 0.1f * dir), -5.0f, 5.0f);
+      break;
+    case Edit::DateTime:
+      switch (editField) {
+        case 0: editHour = wrapValue(editHour + dir, 0, 23); break;
+        case 1: editMinute = wrapValue(editMinute + dir, 0, 59); break;
+        case 2: editDay = wrapValue(editDay + dir, 1, thermo::daysInMonth(editMonth, editYear)); break;
+        case 3: editMonth = wrapValue(editMonth + dir, 1, 12); break;
+        case 4: editYear = constrain(editYear + dir, 2024, 2099); break;
+      }
+      // 31 января -> февраль: день не может быть больше дней в месяце
+      if (editDay > thermo::daysInMonth(editMonth, editYear)) editDay = thermo::daysInMonth(editMonth, editYear);
+      break;
+    case Edit::Night:
+      if (editField == 0) editNightStart = wrapValue(editNightStart + dir, 0, 23);
+      else editNightEnd = wrapValue(editNightEnd + dir, 0, 23);
+      break;
+    default:
+      break;
+  }
+}
+
+void handleEncoder(uint32_t nowMs) {
+  bool input = eb.turn() || eb.click() || eb.hold();
+  if (input) {
+    lastInputMs = nowMs;
+    redraw = true;
+  }
+
+  if (edit == Edit::None) {
+    if (eb.turn()) {
+      if (eb.counter >= SCREEN_COUNT || eb.counter <= -SCREEN_COUNT) eb.counter = 0;
+      screen = (Screen)abs(eb.counter);
+      shownMinute = 255;
+    }
+    if (eb.click()) startEdit();
+    return;
+  }
+
+  // режим правки
+  if (eb.turn()) {
+    changeValue(eb.left() ? 1 : -1);   // как раньше: влево — больше
+    blinkOn = true;
+    lastBlinkMs = nowMs;
+  }
+  if (eb.click()) {
+    if (edit == Edit::DateTime) editField = (editField + 1) % 5;
+    if (edit == Edit::Night) editField = (editField + 1) % 2;
+    blinkOn = true;
+    lastBlinkMs = nowMs;
+  }
+  if (eb.hold()) {
+    saveEdit();
+    finishEdit();
+    return;
+  }
+  if (intervalPassed(nowMs, lastInputMs, EDIT_TIMEOUT_MS)) {
+    Serial.println(F("Edit timeout, changes discarded"));
+    finishEdit();
+    return;
+  }
+  if ((edit == Edit::DateTime || edit == Edit::Night) && intervalPassed(nowMs, lastBlinkMs, BLINK_MS)) {
+    blinkOn = !blinkOn;
+    lastBlinkMs = nowMs;
+    redraw = true;
+  }
+}
+
+// Экран -----------------------------------------------------------------------------------------------
+void render() {
+  char buf[12];
+  bool editing = edit != Edit::None;
+  switch (screen) {
+    case SCR_MAIN:
+      mainDisplay(curTemp, setTemp, modeName(mode), isNight && mode == Mode::Auto,
+                  valveName(valveState), relayLink);
+      break;
+    case SCR_TSET:
+      snprintf(buf, sizeof(buf), "%.1f°C", editing ? editTemp : setTemp);
+      valueDisplay("Tset:", buf, editing);
+      break;
+    case SCR_MODE:
+      valueDisplay("Mode:", modeName(editing ? editMode : mode), editing);
+      break;
+    case SCR_DELTA:
+      snprintf(buf, sizeof(buf), "%.1f°C", editing ? editDelta : nightTempDelta);
+      valueDisplay("Night delta:", buf, editing);
+      break;
+    case SCR_DATETIME:
+      if (editing) {
+        dateTimeDisplay(true, editHour, editMinute, editDay, editMonth, editYear, editField, blinkOn);
+      } else {
+        dateTimeDisplay(timeValid, now_t.hour, now_t.minute, now_t.day, now_t.month, now_t.year, -1, true);
+        shownMinute = now_t.minute;
+      }
+      break;
+    case SCR_NIGHT:
+      if (editing) nightDisplay(editNightStart, editNightEnd, editField, blinkOn);
+      else nightDisplay(nightStart, nightEnd, -1, true);
+      break;
+    case SCR_GRAPH:
+      graphDisplay(history, setTemp, "24h");
+      break;
+    default:
+      break;
+  }
+}
+
+// Настройки ---------------------------------------------------------------------------------------
+const char *modeName(Mode m) {
+  switch (m) {
+    case Mode::Open:  return "open";
+    case Mode::Close: return "close";
+    default:          return "auto";
+  }
+}
+
+void loadSettings() {
+  setTemp = readFloatSetting(LittleFS, setTempFile, DEFAULT_SET_TEMP, 5, 35);
+  nightTempDelta = readFloatSetting(LittleFS, deltaFile, DEFAULT_DELTA, -5, 5);
+
+  String night = readFile(LittleFS, nightFile);
+  int s, e;
+  if (sscanf(night.c_str(), "%d,%d", &s, &e) == 2 && s >= 0 && s <= 23 && e >= 0 && e <= 23) {
+    nightStart = s;
+    nightEnd = e;
+  }
+
+  String m = readFile(LittleFS, modeFile);
+  m.trim();
+  if (m == "open") mode = Mode::Open;
+  else if (m == "close") mode = Mode::Close;
+  else mode = Mode::Auto;
+
+  Serial.printf("Settings: Tset %.1f, delta %.1f, night %u-%u, mode %s\n",
+                setTemp, nightTempDelta, nightStart, nightEnd, modeName(mode));
+}
+
+void saveFloat(const char *path, float value) {
+  char buf[12];
+  snprintf(buf, sizeof(buf), "%.1f", value);
+  writeFile(LittleFS, path, buf);
+}
+
+void saveNight() {
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%u,%u", nightStart, nightEnd);
+  writeFile(LittleFS, nightFile, buf);
+}
+
+void saveMode() {
+  writeFile(LittleFS, modeFile, modeName(mode));
+}
