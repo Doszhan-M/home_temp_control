@@ -5,17 +5,17 @@
 
 The controller keeps the room temperature within a set interval (±0.2 °C) by opening and closing the thermal actuators on the radiators. In auto mode the valve switches at most once every 10 seconds, so a single noisy reading does not toggle it back and forth. At night the setpoint is raised by a configurable delta.
 
-All control is local, on the device itself, with a rotary encoder and an OLED display. Turn the encoder to switch screens, click to edit, turn to change, hold to save:
+All control is local, on the device itself, with a rotary encoder and an OLED display. Turn the encoder to switch screens, click to edit, turn to change (turn fast for bigger steps), hold to save. Each screen has its name in the top yellow line:
 
 - main screen: temperature, valve state, setpoint (at night: setpoint + night delta), mode
 - setpoint
 - mode: auto / manual open / manual close, turn to cycle through them (kept after a power loss)
-- temperature graph for the last 24 hours, with ticks every 6 hours
+- temperature graph for the last 24 hours, with ticks every 6 hours, hours of heating and humidity
 - night delta
 - night period (default 00:00–08:00, or off)
 - date and time (set from the encoder; the RTC keeps it on battery)
 
-After 3 minutes without input the screen switches to a dimmed screensaver: a large temperature and the valve state, moving slowly so the OLED does not burn in. Any touch of the encoder wakes it.
+After 3 minutes without input the screen switches to a dimmed screensaver: a large temperature, the valve state with how long it has been in it, and humidity, moving slowly so the OLED does not burn in. Any touch of the encoder wakes it.
 
 Safety: below 10 °C the valve opens in any mode (frost protection). If the RTC lost its time (battery), the main screen shows SET TIME! and the night mode stays off until the time is set from the encoder.
 

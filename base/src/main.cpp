@@ -53,6 +53,7 @@ const uint32_t WARNING_PHASE_MS  = 2000;               // предупрежде
 const uint32_t RELAY_GRACE_MS    = 35000;              // после запуска не пугать NO LINK: реле нужно до 30 с,
                                                        // чтобы переподключиться, повтор команды — на ~32 с
 const uint32_t SAVED_MSG_MS      = 1000;               // сколько показывать "Saved" после сохранения
+const uint8_t  FAST_TURN_MS      = 50;                 // щелчки чаще — быстрое вращение, шаг больше
 const uint8_t  SAVER_CONTRAST    = 20;                 // яркость хранителя экрана (0..255)
 const uint8_t  NORMAL_CONTRAST   = 0xCF;               // яркость по умолчанию драйвера SSD1306
 
@@ -81,9 +82,13 @@ thermo::Median3 tempFilter;   // медиана трёх последних из
 float curTemp = NAN;          // температура после фильтра: по ней работают экран и термостат
 bool sensorOk = false;
 uint32_t lastSensorMs = 0, lastValidTempMs = 0;
-thermo::History<96> history;
+float curHum = NAN;           // влажность, тоже медиана трёх
+thermo::Median3 humFilter;
+thermo::History<96> history;      // температура, десятые доли градуса
+thermo::History<96> openHistory;  // доля времени с открытым клапаном за точку, %
 float historySum = 0;
 uint16_t historyCount = 0;
+uint16_t historyOpenCount = 0;    // сколько измерений за точку клапан был открыт
 uint32_t lastHistoryMs = 0;
 bool historyStarted = false;
 
@@ -127,6 +132,7 @@ void updateControl(uint32_t nowMs);
 void handleEncoder(uint32_t nowMs);
 void updateScreenTimers(uint32_t nowMs);
 const char *currentWarning();
+void formatDuration(char *buf, size_t size, uint32_t ms);
 void render();
 
 
@@ -158,6 +164,7 @@ void setup() {
 
   // Энкодер
   eb.setEncType(EB_STEP2);
+  eb.setFastTimeout(FAST_TURN_MS);
 
   // Часы DS1307: без них работаем дальше, только без ночного режима
   Wire.begin();
@@ -209,12 +216,23 @@ void readSensor(uint32_t nowMs) {
     curTemp = t;
     sensorOk = true;
     lastValidTempMs = nowMs;
+    float rh = dht.getHumidity();      // из того же опроса датчика
+    if (rh == rh) curHum = humFilter.push(rh);
+    static uint32_t lastSensorLogMs = 0;
+    if (intervalPassed(nowMs, lastSensorLogMs, 60000)) {   // журнал раз в минуту для диагностики
+      lastSensorLogMs = nowMs;
+      Serial.printf("Sensor: raw %.1f, median %.1f C, RH %.0f%%\n", raw, t, curHum);
+    }
+    bool open = desiredValve == Valve::Open;
     historySum += t;
     historyCount++;
+    if (open) historyOpenCount++;
     if (!historyStarted) {             // первая точка графика — сразу
       history.push((int16_t)roundf(t * 10));
+      openHistory.push(open ? 100 : 0);
       historySum = 0;
       historyCount = 0;
+      historyOpenCount = 0;
       lastHistoryMs = nowMs;
       historyStarted = true;
     }
@@ -222,7 +240,9 @@ void readSensor(uint32_t nowMs) {
     Serial.println(F("DHT22: no data, sensor error"));
     sensorOk = false;
     curTemp = NAN;                     // термостат не трогает клапан
+    curHum = NAN;
     tempFilter.reset();                // после ошибки не смешивать старые и новые измерения
+    humFilter.reset();
     redraw = true;
   }
 
@@ -230,8 +250,10 @@ void readSensor(uint32_t nowMs) {
     lastHistoryMs = nowMs;
     if (historyCount > 0) {            // среднее за 15 минут
       history.push((int16_t)roundf(historySum / historyCount * 10));
+      openHistory.push((int16_t)(historyOpenCount * 100 / historyCount));
       historySum = 0;
       historyCount = 0;
+      historyOpenCount = 0;
       if (screen == SCR_GRAPH) redraw = true;
     }
   }
@@ -357,22 +379,24 @@ void saveEdit() {
   }
 }
 
-void changeValue(int8_t dir) {
+// fast — быстрое вращение: уставка и дельта по 0.5 °C, минуты по 5
+void changeValue(int8_t dir, bool fast) {
+  float tempStep = fast ? 0.5f : 0.1f;
   switch (edit) {
     case Edit::Tset:
-      editTemp = constrain(roundTenth(editTemp + 0.1f * dir), 5.0f, 35.0f);
+      editTemp = constrain(roundTenth(editTemp + tempStep * dir), 5.0f, 35.0f);
       break;
     case Edit::Mode:
       // по кругу в обе стороны: auto -> open -> close -> auto
       editMode = (Mode)wrapValue((int)editMode + dir, (int)Mode::Auto, (int)Mode::Close);
       break;
     case Edit::Delta:
-      editDelta = constrain(roundTenth(editDelta + 0.1f * dir), -5.0f, 5.0f);
+      editDelta = constrain(roundTenth(editDelta + tempStep * dir), -5.0f, 5.0f);
       break;
     case Edit::DateTime:
       switch (editField) {
         case 0: editHour = wrapValue(editHour + dir, 0, 23); break;
-        case 1: editMinute = wrapValue(editMinute + dir, 0, 59); break;
+        case 1: editMinute = wrapValue(editMinute + dir * (fast ? 5 : 1), 0, 59); break;
         case 2: editDay = wrapValue(editDay + dir, 1, thermo::daysInMonth(editMonth, editYear)); break;
         case 3: editMonth = wrapValue(editMonth + dir, 1, 12); break;
         case 4: editYear = constrain(editYear + dir, 2024, 2099); break;
@@ -419,7 +443,7 @@ void handleEncoder(uint32_t nowMs) {
 
   // режим правки
   if (eb.turn()) {
-    changeValue(eb.left() ? 1 : -1);   // как раньше: влево — больше
+    changeValue(eb.left() ? 1 : -1, eb.fast());   // как раньше: влево — больше
     blinkOn = true;
     lastBlinkMs = nowMs;
   }
@@ -451,7 +475,7 @@ void handleEncoder(uint32_t nowMs) {
 // Возврат на главный экран, хранитель экрана, мигающая точка ----------------------------------------
 void moveSaver() {
   // ширина по самой длинной надписи под температурой, чтобы смена статуса не вылезла за край
-  int16_t maxX = 128 - saverBlockWidth(curTemp, "RTC ERROR!");
+  int16_t maxX = 128 - saverBlockWidth(curTemp, "CLOSED 99m  100%");
   if (maxX < 0) maxX = 0;
   // по кругу через всю синюю зону, чтобы пиксели изнашивались равномерно
   saverX = (saverX + 37) % (maxX + 1);
@@ -497,6 +521,13 @@ void updateScreenTimers(uint32_t nowMs) {
   }
 }
 
+// Длительность для хранителя экрана: "45m", после 100 минут — "5h"
+void formatDuration(char *buf, size_t size, uint32_t ms) {
+  uint32_t minutes = ms / 60000;
+  if (minutes < 100) snprintf(buf, size, "%lum", (unsigned long)minutes);
+  else snprintf(buf, size, "%luh", (unsigned long)(minutes / 60));
+}
+
 // Предупреждение для главного экрана и хранителя, или nullptr
 const char *currentWarning() {
   if (!timeValid) return "RTC ERROR!";
@@ -514,9 +545,18 @@ void render() {
   bool linkOk = relayLink || !relayGraceOver;
 
   if (saver) {
-    const char *status = linkOk ? valveName(valveState) : "NO LINK";
-    if (frostActive) status = "FROST";
-    if (warning && warningPhase) status = warning;
+    // строка под температурой: клапан и сколько он в этом положении, влажность
+    char status[32];
+    char hum[8] = "";
+    if (curHum == curHum) snprintf(hum, sizeof(hum), "  %.0f%%", curHum);
+    if (warning && warningPhase) snprintf(status, sizeof(status), "%s", warning);
+    else if (frostActive) snprintf(status, sizeof(status), "FROST%s", hum);
+    else if (!linkOk) snprintf(status, sizeof(status), "NO LINK%s", hum);
+    else {
+      char dur[8];
+      formatDuration(dur, sizeof(dur), millis() - lastSwitchMs);
+      snprintf(status, sizeof(status), "%s %s%s", valveName(valveState), dur, hum);
+    }
     saverDisplay(saverX, saverY, curTemp, status);
     return;
   }
@@ -537,30 +577,42 @@ void render() {
     }
     case SCR_TSET:
       snprintf(buf, sizeof(buf), "%.1f°C", editing ? editTemp : setTemp);
-      valueDisplay("Tset:", buf, editing);
+      valueDisplay(editing ? "EDIT: SETPOINT" : "SETPOINT", buf, editing);
       break;
     case SCR_MODE:
-      valueDisplay("Mode:", modeName(editing ? editMode : mode), editing);
+      valueDisplay(editing ? "EDIT: MODE" : "MODE", modeName(editing ? editMode : mode), editing);
       break;
     case SCR_DELTA:
       snprintf(buf, sizeof(buf), "%.1f°C", editing ? editDelta : nightTempDelta);
-      valueDisplay("Night delta:", buf, editing);
+      valueDisplay(editing ? "EDIT: NIGHT DELTA" : "NIGHT DELTA", buf, editing);
       break;
     case SCR_DATETIME:
       if (editing) {
-        dateTimeDisplay(true, editHour, editMinute, editDay, editMonth, editYear, editField, blinkOn);
+        static const char *fieldNames[] = {"EDIT: HOUR", "EDIT: MINUTE", "EDIT: DAY", "EDIT: MONTH", "EDIT: YEAR"};
+        dateTimeDisplay(fieldNames[editField], true, editHour, editMinute, editDay, editMonth, editYear, editField, blinkOn);
       } else {
-        dateTimeDisplay(timeValid, now_t.hour, now_t.minute, now_t.day, now_t.month, now_t.year, -1, true);
+        static const char *days[] = {"SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"};
+        const char *header = timeValid ? days[thermo::dayOfWeek(now_t.day, now_t.month, now_t.year)] : "DATE & TIME";
+        dateTimeDisplay(header, timeValid, now_t.hour, now_t.minute, now_t.day, now_t.month, now_t.year, -1, true);
         shownMinute = now_t.minute;
       }
       break;
     case SCR_NIGHT:
-      if (editing) nightDisplay(editNightStart, editNightEnd, editField, blinkOn);
-      else nightDisplay(nightStart, nightEnd, -1, true);
+      if (editing) nightDisplay(editField == 0 ? "EDIT: NIGHT START" : "EDIT: NIGHT END",
+                                editNightStart, editNightEnd, editField, blinkOn);
+      else nightDisplay("NIGHT PERIOD", nightStart, nightEnd, -1, true);
       break;
-    case SCR_GRAPH:
-      graphDisplay(history, setTemp, "24h");
+    case SCR_GRAPH: {
+      // заголовок: сколько часов клапан был открыт за время графика, текущая влажность
+      uint32_t openSum = 0;
+      for (uint16_t i = 0; i < openHistory.size(); i++) openSum += openHistory.at(i);
+      float heatHours = openSum / 100.0f * HISTORY_PERIOD_MS / 3600000.0f;
+      char header[40];
+      int len = snprintf(header, sizeof(header), "HEAT %.1fh", heatHours);   // "24H" не влезал
+      if (curHum == curHum) snprintf(header + len, sizeof(header) - len, "   RH %.0f%%", curHum);
+      graphDisplay(header, history, openHistory, setTemp);
       break;
+    }
     default:
       break;
   }
