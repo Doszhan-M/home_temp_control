@@ -23,7 +23,7 @@ const char *valveName(Valve v) {
   switch (v) {
     case Valve::Open:   return "OPEN";
     case Valve::Closed: return "CLOSED";
-    default:            return "UNKNOWN";
+    default:            return "---";   // "UNKNOWN" не влезал в строку главного экрана
   }
 }
 

@@ -135,7 +135,9 @@ void initTimeAtBoot() {
   timeConfirmed = running && marker && plausible;
   Serial.printf("RTC: running=%d marker=%d plausible=%d -> %s\n", running, marker, plausible,
                 timeConfirmed ? "time OK" : "SET TIME");
-  setTimeFromBuild(20);                     // чтобы часы хотя бы шли с правдоподобного времени
+  // время из прошивки — только при сбое, чтобы часы шли с правдоподобного времени.
+  // Время, выставленное с энкодера, прошивка не перезаписывает.
+  if (!timeConfirmed) setTimeFromBuild(20);
   if (!rtc.isRunning()) rtc.clockEnable(true);
   readClock();
 }

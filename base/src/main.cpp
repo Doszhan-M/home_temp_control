@@ -50,6 +50,9 @@ const uint32_t RETURN_MAIN_MS    = 60000;              // минута без н
 const uint32_t SAVER_MS          = 3UL * 60 * 1000;    // 3 мин без нажатий — хранитель экрана
 const uint32_t SAVER_MOVE_MS     = 60000;              // блок хранителя сдвигается раз в минуту
 const uint32_t WARNING_PHASE_MS  = 2000;               // предупреждение чередуется с режимом
+const uint32_t RELAY_GRACE_MS    = 35000;              // после запуска не пугать NO LINK: реле нужно до 30 с,
+                                                       // чтобы переподключиться, повтор команды — на ~32 с
+const uint32_t SAVED_MSG_MS      = 1000;               // сколько показывать "Saved" после сохранения
 const uint8_t  SAVER_CONTRAST    = 20;                 // яркость хранителя экрана (0..255)
 const uint8_t  NORMAL_CONTRAST   = 0xCF;               // яркость по умолчанию драйвера SSD1306
 
@@ -108,6 +111,9 @@ bool saver = false;          // хранитель экрана включён
 int16_t saverX = 0, saverY = 11;
 uint32_t lastSaverMoveMs = 0, lastWarningMs = 0;
 bool warningPhase = false;   // показывать ли сейчас предупреждение вместо режима
+bool savedShown = false;     // сейчас на экране "Saved"
+uint32_t savedAtMs = 0;
+bool relayGraceOver = false; // первая минута после запуска прошла
 
 // Functions ---------------------------------------------------------------------------------
 void loadSettings();
@@ -357,9 +363,8 @@ void changeValue(int8_t dir) {
       editTemp = constrain(roundTenth(editTemp + 0.1f * dir), 5.0f, 35.0f);
       break;
     case Edit::Mode:
-      // как раньше: влево — авто, вправо — переключение открыть/закрыть
-      if (dir > 0) editMode = Mode::Auto;
-      else editMode = (editMode == Mode::Open) ? Mode::Close : Mode::Open;
+      // по кругу в обе стороны: auto -> open -> close -> auto
+      editMode = (Mode)wrapValue((int)editMode + dir, (int)Mode::Auto, (int)Mode::Close);
       break;
     case Edit::Delta:
       editDelta = constrain(roundTenth(editDelta + 0.1f * dir), -5.0f, 5.0f);
@@ -389,6 +394,7 @@ void handleEncoder(uint32_t nowMs) {
   if (input) {
     lastInputMs = nowMs;
     redraw = true;
+    savedShown = false;
   }
 
   // хранитель экрана: первое касание только будит экран и ничего не меняет
@@ -426,6 +432,8 @@ void handleEncoder(uint32_t nowMs) {
   if (eb.hold()) {
     saveEdit();
     finishEdit();
+    savedShown = true;   // подтверждение: при отмене по таймауту его нет
+    savedAtMs = nowMs;
     return;
   }
   if (intervalPassed(nowMs, lastInputMs, EDIT_TIMEOUT_MS)) {
@@ -451,6 +459,14 @@ void moveSaver() {
 }
 
 void updateScreenTimers(uint32_t nowMs) {
+  if (savedShown && intervalPassed(nowMs, savedAtMs, SAVED_MSG_MS)) {
+    savedShown = false;
+    redraw = true;
+  }
+  if (!relayGraceOver && nowMs >= RELAY_GRACE_MS) {
+    relayGraceOver = true;
+    if (!relayLink) redraw = true;   // реле так и не ответило — пора показать NO LINK
+  }
   if (edit == Edit::None && !saver) {
     if (screen != SCR_MAIN && intervalPassed(nowMs, lastInputMs, RETURN_MAIN_MS)) {
       screen = SCR_MAIN;
@@ -494,20 +510,31 @@ void render() {
   bool editing = edit != Edit::None;
   const char *warning = currentWarning();
 
+  // NO LINK — только если реле не ответило и после первой минуты; до этого "---"
+  bool linkOk = relayLink || !relayGraceOver;
+
   if (saver) {
-    const char *status = relayLink ? valveName(valveState) : "NO LINK";
+    const char *status = linkOk ? valveName(valveState) : "NO LINK";
     if (frostActive) status = "FROST";
     if (warning && warningPhase) status = warning;
     saverDisplay(saverX, saverY, curTemp, status);
     return;
   }
 
+  if (savedShown) {
+    messageDisplay("Saved");
+    return;
+  }
+
   switch (screen) {
-    case SCR_MAIN:
-      mainDisplay(curTemp, setTemp, frostActive ? "FROST" : modeName(mode),
-                  isNight && mode == Mode::Auto && !frostActive,
-                  valveName(valveState), relayLink, warning, warningPhase);
+    case SCR_MAIN: {
+      // ночью показывается фактическая уставка: дневная + ночная дельта
+      bool nightActive = isNight && mode == Mode::Auto && !frostActive;
+      mainDisplay(curTemp, setTemp + (nightActive ? nightTempDelta : 0),
+                  frostActive ? "FROST" : modeName(mode), nightActive,
+                  valveName(valveState), linkOk, warning, warningPhase);
       break;
+    }
     case SCR_TSET:
       snprintf(buf, sizeof(buf), "%.1f°C", editing ? editTemp : setTemp);
       valueDisplay("Tset:", buf, editing);

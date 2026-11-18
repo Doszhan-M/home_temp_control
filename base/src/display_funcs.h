@@ -108,6 +108,16 @@ void valueDisplay(const char *title, const char *value, bool editing) {
   display.display();
 }
 
+// Короткое сообщение крупно, например "Saved" после сохранения настройки
+void messageDisplay(const char *text) {
+  display.clear();
+  display.setFont(ArialMT_Plain_24);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 23, text);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.display();
+}
+
 // Дата и время. field: -1 — просмотр, 0..4 — правка (часы, минуты, день, месяц, год)
 void dateTimeDisplay(bool valid, uint8_t hour, uint8_t minute, uint8_t day, uint8_t month,
                      uint16_t year, int8_t field, bool blinkOn) {
@@ -143,16 +153,17 @@ void nightDisplay(uint8_t start, uint8_t end, int8_t field, bool blinkOn) {
   display.setFont(ArialMT_Plain_24);
   display.drawString(64, LINE1_Y, "Night:");
   display.setTextAlignment(TEXT_ALIGN_LEFT);
+  // только часы: минуты не настраиваются, а "22:00-06:00" занимало всю ширину экрана
   char s[16], e[16];
-  snprintf(s, sizeof(s), "%02u:00", start);
-  snprintf(e, sizeof(e), "%02u:00", end);
+  snprintf(s, sizeof(s), "%02u", start);
+  snprintf(e, sizeof(e), "%02u", end);
   int16_t y = LINE2_Y;
   if (start == end && field < 0) {
     display.setTextAlignment(TEXT_ALIGN_CENTER);
     display.drawString(64, y, "off");
     display.setTextAlignment(TEXT_ALIGN_LEFT);
   } else {
-    const TextPart parts[] = {{s, 0}, {"-", -1}, {e, 1}};
+    const TextPart parts[] = {{s, 0}, {" - ", -1}, {e, 1}};
     drawParts(y, parts, 3, field, blinkOn);
   }
   display.display();
@@ -196,6 +207,12 @@ void graphDisplay(const thermo::History<N> &h, float setTemp, const char *period
   int16_t sp = (int16_t)(setTemp * 10.0f + 0.5f);
   if (sp >= lo && sp <= hi) {
     for (int16_t x = x0; x < 128; x += 3) display.setPixel(x, yOf(sp));
+  }
+
+  // засечки внизу: 6, 12 и 18 часов назад (точка раз в 15 мин -> 24 точки на 6 часов)
+  for (int16_t k = 1; k <= 3; k++) {
+    int16_t x = x0 + width - 1 - k * 24;
+    display.drawVerticalLine(x, yBottom - 2, 3);
   }
 
   // точки распределяются по всей ширине, новые — справа

@@ -7,10 +7,10 @@ The controller keeps the room temperature within a set interval (±0.2 °C) by o
 
 All control is local, on the device itself, with a rotary encoder and an OLED display. Turn the encoder to switch screens, click to edit, turn to change, hold to save:
 
-- main screen: temperature, valve state, setpoint, mode
+- main screen: temperature, valve state, setpoint (at night: setpoint + night delta), mode
 - setpoint
-- mode: auto / manual open / manual close (kept after a power loss)
-- temperature graph for the last 24 hours
+- mode: auto / manual open / manual close, turn to cycle through them (kept after a power loss)
+- temperature graph for the last 24 hours, with ticks every 6 hours
 - night delta
 - night period (default 00:00–08:00, or off)
 - date and time (set from the encoder; the RTC keeps it on battery)
