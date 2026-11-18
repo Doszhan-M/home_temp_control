@@ -9,7 +9,6 @@
         "restclient",
         "xhttp",
         "minut",
-        "sonoff",
         "APIP",
         "Datetime",
         "термоприводы",

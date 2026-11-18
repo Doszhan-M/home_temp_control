@@ -3,16 +3,21 @@
 
 ## Thermal management application on esp8266 NodeMCU V3 module
 
-### On the ESP8266 module, raised the web server, which can process requests from the browser. Adaptation of the html page is made only for mobile devices. To access the page, you need to connect the ESP8266 to your home router and set a static ip address in the router settings. The module also raises its access point, you can go through it. The relay from Sonoff must connect to the access point from ESP8266. The main functionality of the device is to maintain the temperature in a given interval. You can also control the 3-position button on the device itself: open - auto - close. 
+The controller keeps the room temperature within a set interval by opening and closing the thermal actuators on the radiators. At night (00:00–08:00) the setpoint is raised by a configurable delta.
+
+All control is local, on the device itself, with a rotary encoder and an OLED display: setpoint, mode (auto / manual open / manual close), night delta, current date and time. The controller runs its own Wi-Fi access point, used only to send open/close commands to the relay module.
+
+Earlier versions also connected to the home Wi-Fi router and served a mobile web page. In practice this was unnecessary for this project, so both were removed: local control on the device is enough. Firmware updates are done over USB.
 
 
 Used Components: 
-1. ESP8266
-2. DHT22
-3. DS1307
-4. Sonoff Basic R3 (DIY Mode) [manual](https://sonoff.tech/uncategorized/basiczbr3/) , [Sonoff_Devices_DIY_Tools](https://github.com/itead/Sonoff_Devices_DIY_Tools)
-5. Button 3-position (hw-040)
-6. Electric thermal actuators for heating radiators [bought here](https://aliexpress.ru/item/1005003695755495.html?spm=a2g2w.orderdetail.0.0.61994aa6l1Ep1u&sku_id=12000026837565021)
+1. ESP8266 NodeMCU V3 (controller, firmware in `base/`)
+2. DHT22 (temperature sensor)
+3. DS1307 RTC (Tiny RTC module; it has a charging circuit, so use an LIR2032 battery, not CR2032)
+4. Relay module: Wemos D1 mini (ESP8266) + relay, custom firmware in `relay/`
+5. Rotary encoder with button (HW-040)
+6. SSD1306 OLED display (I2C)
+7. Electric thermal actuators for heating radiators [bought here](https://aliexpress.ru/item/1005003695755495.html?spm=a2g2w.orderdetail.0.0.61994aa6l1Ep1u&sku_id=12000026837565021)
 
 
 ## Wiring diagram:
