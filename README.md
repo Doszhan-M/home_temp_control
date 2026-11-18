@@ -10,10 +10,10 @@ All control is local, on the device itself, with a rotary encoder and an OLED di
 - main screen: temperature, valve state, setpoint, mode
 - setpoint
 - mode: auto / manual open / manual close (kept after a power loss)
-- night delta
-- date and time (set from the encoder; the RTC keeps it on battery)
-- night period (default 00:00–08:00, or off)
 - temperature graph for the last 24 hours
+- night delta
+- night period (default 00:00–08:00, or off)
+- date and time (set from the encoder; the RTC keeps it on battery)
 
 The controller runs its own Wi-Fi access point, used only to send open/close commands to the relay module. The command is repeated every minute. If the relay module gets no commands for 10 minutes, it opens the valve, so the house does not freeze when the controller fails.
 

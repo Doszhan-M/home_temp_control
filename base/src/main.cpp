@@ -53,7 +53,8 @@ const char *modeFile    = "/mode.cfg";    // auto / open / close
 
 // Состояние --------------------------------------------------------------------------------------
 enum class Mode : uint8_t { Auto, Open, Close };
-enum Screen : uint8_t { SCR_MAIN, SCR_TSET, SCR_MODE, SCR_DELTA, SCR_DATETIME, SCR_NIGHT, SCR_GRAPH, SCREEN_COUNT };
+// Порядок экранов в меню: график после режима, ночная дельта и ночной период стоят рядом
+enum Screen : uint8_t { SCR_MAIN, SCR_TSET, SCR_MODE, SCR_GRAPH, SCR_DELTA, SCR_NIGHT, SCR_DATETIME, SCREEN_COUNT };
 enum class Edit : uint8_t { None, Tset, Mode, Delta, DateTime, Night };
 
 // настройки
