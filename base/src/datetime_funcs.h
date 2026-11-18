@@ -73,3 +73,28 @@ void setTimeIfOutdated(uint8_t targetHour, uint8_t targetMinute, uint8_t targetS
     rtc.setDateTime(targetHour, targetMinute, targetSecond, targetDay, targetMonth, targetYear, targetWday);
   }
 }
+
+// Установить время по моменту компиляции прошивки (__DATE__ / __TIME__ — локальное время ПК),
+// если часы отстают от него. uploadDelaySec — поправка на время сборки и загрузки прошивки.
+void setTimeFromBuild(uint16_t uploadDelaySec) {
+  const char *months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+  char monStr[4];
+  int d, y, h, m, s;
+  sscanf(__DATE__, "%3s %d %d", monStr, &d, &y);   // "Nov 18 2026"
+  sscanf(__TIME__, "%d:%d:%d", &h, &m, &s);         // "15:32:07"
+
+  struct tm t = {};
+  t.tm_year = y - 1900;
+  t.tm_mon  = (strstr(months, monStr) - months) / 3;
+  t.tm_mday = d;
+  t.tm_hour = h;
+  t.tm_min  = m;
+  t.tm_sec  = s;
+
+  // mktime/gmtime_r нормализуют дату после прибавления поправки и вычисляют день недели
+  time_t ts = mktime(&t) + uploadDelaySec;
+  gmtime_r(&ts, &t);
+
+  setTimeIfOutdated(t.tm_hour, t.tm_min, t.tm_sec, t.tm_mday, t.tm_mon + 1,
+                    t.tm_year + 1900, t.tm_wday);   // tm_wday: 0 = воскресенье
+}

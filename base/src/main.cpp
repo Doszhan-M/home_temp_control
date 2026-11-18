@@ -97,7 +97,7 @@ void setup() {
   Serial.println(F("\nInitializing DS1307"));
   while (!rtc.begin()) {Serial.println(F("RTC not found"));}
   
-  setTimeIfOutdated(14, 17, 1, 11, 8, 2024, 0);  // 14:17:01, 11 августа 2024 воскресенье
+  setTimeFromBuild(20);  // время компиляции прошивки + 20 с на загрузку
 
   // Initialising file system -----------------------------------------
   if (LittleFS.begin())
