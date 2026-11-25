@@ -34,7 +34,7 @@ using thermo::wrapValue;
 const char *ssid = "Actuator";
 const char *password = "rmc6394B";
 
-const float    HYSTERESIS        = 0.2;                // клапан переключается при отклонении на ±0.2 °C
+const float    HYSTERESIS        = 0.05;               // датчик даёт шаг 0.1 °C: клапан переключается при отклонении на ±0.1 °C
 const uint32_t MIN_SWITCH_MS     = 10UL * 1000;        // в авто клапан переключается не чаще раза в 10 с
 const uint32_t SENSOR_PERIOD_MS  = 2500;               // DHT22 не чаще раза в 2 с
 const uint32_t SENSOR_FAIL_MS    = 60000;              // нет данных минуту — ошибка датчика

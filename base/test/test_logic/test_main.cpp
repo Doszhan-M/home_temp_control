@@ -35,6 +35,13 @@ void test_decide_valve() {
   // датчик не отвечает — клапан не трогаем
   TEST_ASSERT_EQUAL(Valve::Open, decideValve(NAN, 22.0, 0.2, Valve::Open));
   TEST_ASSERT_EQUAL(Valve::Unknown, decideValve(NAN, 22.0, 0.2, Valve::Unknown));
+  // рабочий гистерезис 0.05 при шаге датчика 0.1: переключение уже на ±0.1 от уставки
+  TEST_ASSERT_EQUAL(Valve::Closed, decideValve(22.1f, 22.0f, 0.05f, Valve::Open));
+  TEST_ASSERT_EQUAL(Valve::Open, decideValve(21.9f, 22.0f, 0.05f, Valve::Closed));
+  TEST_ASSERT_EQUAL(Valve::Open, decideValve(22.0f, 22.0f, 0.05f, Valve::Open));
+  TEST_ASSERT_EQUAL(Valve::Closed, decideValve(22.0f, 22.0f, 0.05f, Valve::Closed));
+  TEST_ASSERT_EQUAL(Valve::Closed, decideValve(22.6f, 22.5f, 0.05f, Valve::Open));
+  TEST_ASSERT_EQUAL(Valve::Open, decideValve(22.4f, 22.5f, 0.05f, Valve::Closed));
 }
 
 void test_interval_overflow() {
